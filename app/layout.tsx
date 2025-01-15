@@ -33,11 +33,12 @@ export default function RootLayout({
       <body className="bg-background text-foreground">
         <div className="flex flex-row justify-between">
           <div className="p-4">VisionXAI</div>
-          <div className='flex flex-row p-5'>
-            <div className='px-1'>Sign In</div>
-            <div>Sign Up</div>
+          <div className="flex flex-row p-5">
+            <Link href="/sign-in" className="mx-5">Sign In</Link>
+            <Link href="/sign-up" className="mx-5">Sign Up</Link>
           </div>
         </div>
+        {children}
       </body>
     </html>
   );
