@@ -11,7 +11,7 @@ export default async function Torch() {
   let imageUrl: string | null = null;
 
   if (data.ok) {
-    imageUrl = data.url; // The URL of the generated Grad-CAM image
+    imageUrl = data.url; 
   }
 
   return (
