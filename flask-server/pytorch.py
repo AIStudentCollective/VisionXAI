@@ -1,4 +1,4 @@
-from flask import Blueprint, request, send_file
+from flask import Blueprint, request, jsonify
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,6 +7,7 @@ from PIL import Image
 import numpy as np
 import cv2
 import io
+import base64
 
 pytorch_bp = Blueprint('pytorch', __name__)
 
@@ -113,6 +114,11 @@ def heatmap():
     overlay = cv2.addWeighted(original_img, 0.5, heatmap_colormap, 0.5, 0)
 
     _, buffer = cv2.imencode('.png', cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
-    result_bytes = io.BytesIO(buffer)
+    image_base64 = base64.b64encode(buffer).decode('utf-8')
 
-    return send_file(result_bytes, mimetype='image/png')
+    response = {
+        "image": image_base64,
+        "predicted_class": f"{predicted_class}"
+    }
+
+    return jsonify(response), 200
