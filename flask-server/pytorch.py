@@ -9,6 +9,7 @@ import cv2
 import pandas as pd
 import io
 import base64
+import vit_attention_rollout
 
 pytorch_bp = Blueprint('pytorch', __name__)
 
@@ -150,3 +151,69 @@ def heatmap():
 # squeezenet1_0, squeezenet1_1 --> with target features.12  --> NOT
 # shufflenet_v2_x0_5, shufflenet_v2_x1_0 --> with target conv5
 # mnasnet0_5, mnasnet1_0 --> with target layers[-1] --> NOT 
+
+@pytorch_bp.route('/heatmap_vit', methods=['POST'])
+def vit_heatmap():
+    model_name = request.form.get('model_name')
+    weights_file = request.files.get('weights_path') 
+    image_file = request.files['image_path']
+    class_labels_file = request.files['class_labels_csv'] 
+    num_classes = request.form.get('num_classes')
+
+    supportedVITs = ['vit_b_16', 'vit_b_32', 'vit_l_16', 'vit_l_32', 'vit_h_14']  
+
+    if not model_name or not weights_file:
+        return jsonify({'Error: model name and weights file are required!'}), 400
+    
+    if model_name not in supportedVITs:
+        try:
+            model = vit_attention_rollout.loadHFModel(model_name, weights_file)
+            model.eval()
+        except Exception as e:
+            return jsonify({f'Error in loading model {e}'}), 500
+        try:
+            tensor = vit_attention_rollout.preprocessHFImage(image_file, model)
+        except Exception as e:
+            return jsonify({f'Error in loading weights: {e}'}), 500
+    else:
+        try:
+            model = vit_attention_rollout.loadModel(model_name, weights_file)
+        except Exception as e:
+            return jsonify({f'Error in loading model {e}'}), 500
+        try:
+            tensor = vit_attention_rollout.preprocessImage(image_file, model)
+        except Exception as e:
+            return jsonify({f'Error in loading weights: {e}'}), 500
+        
+    try:
+        labels = vit_attention_rollout.loadCSV(class_labels_file)
+    except Exception as e:
+        return jsonify({f'Error loading CSV file labels: {e}'}), 500
+    
+    try:
+        input_size = model.image_size[0] if hasattr(model, 'image_size') else 224
+        attention_matrices_list = []
+        vit_attention_rollout.registerAttHooks(model, attention_matrices_list)
+
+        with torch.no_grad():
+            output = model(tensor)
+            predicted_class_index = torch.argmax(output, dim=1).item()
+            predicted_class_label = labels.get(predicted_class_index, f"Class {predicted_class_index}")
+
+        if not attention_matrices_list:
+            return jsonify({'No attention matrices captured. Attention rollout visualization cannot be generated.'}), 500
+        
+        attentions = [attn.cpu() for attn in attention_matrices_list]
+        rollout_map = vit_attention_rollout.computeRollout(attentions)
+
+        img_base64 = vit_attention_rollout.visualizeRollout(rollout_map, image_file, patch_size=model.patch_size[0] if hasattr(model, 'patch_size') else 16)
+
+        response = {
+            'base64_image': img_base64,
+            'predicted_class_label': predicted_class_label,
+            'predicted_class_index': predicted_class_index
+        }
+        return jsonify(response), 200
+    
+    except Exception as e:
+        return jsonify(f'Error in attention rollout implementation: {e}'), 500
