@@ -4,6 +4,7 @@ import subprocess
 import base64
 import json
 import logging
+from attentionScript import process_image_attention  # ✅ Import Attention Rollout Script
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -13,14 +14,14 @@ app = Flask(__name__)
 # Create a Blueprint for TensorFlow routes
 tensorflow_bp = Blueprint('tensorflow', __name__, url_prefix='/api/tensorflow')
 
-
 @tensorflow_bp.route('/heatmap', methods=['POST'])
 def tensorflow_heatmap():
     # Get uploaded files and architecture
-    class_names_file = request.files.get('class_names')
-    weights_file = request.files.get('weights')
+    class_names_file = request.files.get('class_names') if request.form.get('architecture') != "ViT" else None
+    weights_file = request.files.get('weights') if request.form.get('architecture') != "ViT" else None
     image_file = request.files.get('image')
     architecture = request.form.get('architecture')
+
 
     # Get the API directory (where app.py is located)
     api_dir = os.path.dirname(__file__)
@@ -34,20 +35,22 @@ def tensorflow_heatmap():
         weights_path = None
         image_path = os.path.join(uploads_dir, 'image.jpg')
 
-        if not class_names_file:
-            raise ValueError("Class names file is required.")
-        class_names_file.save(class_names_path)
+        if architecture != "ViT":
+            if not class_names_file:
+                raise ValueError("Class names file is required.")
+            class_names_file.save(class_names_path)
 
-        if not weights_file:
-            raise ValueError("Weights file is required.")
-         # Check if the model file is .keras or .h5 format
-        original_filename = weights_file.filename
-        file_extension = os.path.splitext(original_filename)[1].lower()
-        
-        weights_path = os.path.join(uploads_dir, 'model_weights' + file_extension) # Use original file extension to save
+        if architecture != "ViT":
+            if not weights_file:
+                raise ValueError("Weights file is required.")
 
-        weights_file.save(weights_path)
-        logging.info(f"Saved model with extension {file_extension} to {weights_path}")
+        # Check if the model file is .keras or .h5 format
+            original_filename = weights_file.filename
+            file_extension = os.path.splitext(original_filename)[1].lower()
+            weights_path = os.path.join(uploads_dir, 'model_weights' + file_extension)  # Use original file extension to save
+
+            weights_file.save(weights_path)
+            logging.info(f"Saved model with extension {file_extension} to {weights_path}")
 
         if not image_file:
             raise ValueError("Image file is required.")
@@ -55,44 +58,67 @@ def tensorflow_heatmap():
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
-    except Exception as e:  # Catch other potential file errors
+    except Exception as e:
         return jsonify({"error": f"Error handling uploaded files: {e}"}), 500
 
     # Determine and execute the appropriate script
     try:
         if architecture in ['ResNet50', 'VGG16', 'InceptionV3']:
-            script_name = 'gcamScript.py'  # Ensure this script exists in api folder
+            script_name = 'gcamScript.py'  # Ensure this script exists in API folder
             args = [class_names_path, weights_path, architecture, image_path]
         elif architecture == 'Custom':
-             # Check if the uploaded model is a .keras file
             if weights_file and weights_file.filename.endswith('.keras'):
                 script_name = 'kerasScript.py'
             else:
                 script_name = 'customScript.py'
             args = [class_names_path, weights_path, image_path]
+        elif architecture == 'ViT':  # ✅ NEW: Vision Transformer Attention Rollout
+            logging.info("Using Attention Rollout for Vision Transformer...")
+            result = process_image_attention(image_path)  # Call the new function directly
+
+            if "error" in result:
+                return jsonify({"error": result["error"]}), 500
+
+            predicted_class = result["prediction"]
+            visualization_image_path = os.path.join(api_dir, result["heatmap_url"].lstrip('/'))
+
+            # Encode the image to base64
+            try:
+                with open(visualization_image_path, "rb") as image_file:
+                    encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+
+                response = {
+                    "image": encoded_string,
+                    "predicted_class": predicted_class,
+                }
+                return jsonify(response), 200
+            except Exception as e:
+                return jsonify({"error": f"Error encoding or opening image: {e}"}), 500
+
         else:
             raise ValueError("Unsupported architecture type.")
 
+        # Execute Grad-CAM, Custom, or Keras scripts
         command = ['python', os.path.join(api_dir, script_name)] + args
 
         # Log the command being executed
         logging.info(f"Executing command: {' '.join(command)}")
-        
+
         process = subprocess.run(
             command,
             capture_output=True,
             text=True,
             cwd=api_dir  # Crucial: Set the working directory
         )
-        
+
         # Log all outputs for debugging
         logging.info(f"Return code: {process.returncode}")
         logging.info(f"STDOUT: {process.stdout}")
         logging.info(f"STDERR: {process.stderr}")
-        
+
         if process.returncode != 0:
             return jsonify({"error": f"Script execution failed with code {process.returncode}: {process.stderr}"}), 500
-        
+
         # Attempt to parse JSON from stdout
         try:
             result = json.loads(process.stdout)
