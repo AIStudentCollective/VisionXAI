@@ -30,15 +30,35 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={geistSans.className} suppressHydrationWarning>
-      <body className="bg-background text-foreground">
-        <div className="flex flex-row justify-between">
-          <div className="p-4">VisionXAI</div>
-          <div className="flex flex-row p-5">
-            <Link href="/sign-in" className="mx-5">Sign In</Link>
-            <Link href="/sign-up" className="mx-5">Sign Up</Link>
+      <body className="bg-black text-white text-foreground min-h-screen min-w-full flex flex-col">
+        
+        {/* Background Wrapper */}
+        <div className="relative min-h-screen w-full flex flex-col items-center justify-center
+                        bg-[url('/images/background.svg')] bg-cover bg-center bg-no-repeat">
+          
+          {/* Navbar */}
+          <div className="flex flex-row justify-between w-full px-10 py-6 absolute top-0 left-0">
+            <img src="/images/logo.svg" alt="Logo" className="w-60 h-60"/>
+            <div className="flex flex-row p-5 mt-20"> 
+            {/* 
+              <Link href="/sign-in" className="mx-5">Sign In</Link>
+              <Link href="/sign-up" className="mx-5">Sign Up</Link>
+              <Link href="/torch" className="mx-5">Torch</Link>
+             */}
+              <Link href="" className="mx-5">Home</Link>
+              <Link href="" className="mx-5">Documents</Link>
+              <Link href="" className="mx-5">Support</Link>
+              <Link href="" className="mx-5">Privacy Policy</Link>
+            </div>
           </div>
+  
+          {/* Page Content */}
+          <div className="flex-1 flex items-center justify-center w-full h-full">
+            {children}
+          </div>
+  
         </div>
-        {children}
+        
       </body>
     </html>
   );

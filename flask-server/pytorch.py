@@ -12,6 +12,28 @@ import base64
 
 pytorch_bp = Blueprint('pytorch', __name__)
 
+# Mapping of models to their default target layers for Grad-CAM
+MODEL_TARGET_LAYERS = {
+    "resnet18": "layer4",
+    "resnet34": "layer4",
+    "resnet50": "layer4",
+    "resnet101": "layer4",
+    "resnet152": "layer4",
+    "alexnet": "features.11",
+    "vgg11": "features.20",
+    "vgg13": "features.20",
+    "vgg16": "features.29",
+    "vgg19": "features.29",
+    "inception_v3": "Mixed_7c",
+    "densenet121": "features.norm5",
+    "densenet169": "features.norm5",
+    "densenet201": "features.norm5",
+    "densenet161": "features.norm5",
+    "mobilenet_v2": "features.18",
+    "shufflenet_v2_x0_5": "conv5",
+    "shufflenet_v2_x1_0": "conv5"
+}
+
 class CustomModelWrapper(nn.Module):
     def __init__(self, model, target_layer_name):
         super(CustomModelWrapper, self).__init__()
@@ -44,23 +66,34 @@ class CustomModelWrapper(nn.Module):
         return self.activations
 
 def load_class_labels(csv_file):
+    """Load class labels from a required CSV file."""
     df = pd.read_csv(csv_file)
-    return dict(zip(df['index'], df['class_name']))  
+    return dict(zip(df['index'], df['class_name']))  # Assumes 'index' and 'class_name' columns
 
 @pytorch_bp.route('/heatmap', methods=['POST'])
 def heatmap():
+    # Extract form data
     model_name = request.form.get('model_name')
-    target_layer = request.form.get('target_layer')
-    weights_file = request.files.get('weights_path') 
-    image_file = request.files['image_path']
-    class_labels_file = request.files['class_labels_csv']  
+    weights_file = request.files.get('weights_path')  # Optional
+    image_file = request.files.get('image_path')
+    class_labels_file = request.files.get('class_labels_csv')
 
-    if not model_name or not target_layer:
-        return jsonify({"error": "Model name and target layer are required"}), 400
+    # **Validation: Ensure required fields are filled**
+    if not model_name or not image_file or not class_labels_file:
+        return jsonify({"error": "Model name, image file, and class labels CSV are required"}), 400
 
+    # **Check if model is supported**
+    if model_name not in MODEL_TARGET_LAYERS:
+        return jsonify({"error": f"Model '{model_name}' is not supported"}), 400
+
+    # **Assign the correct target layer based on the model**
+    target_layer = MODEL_TARGET_LAYERS[model_name]
+    print(f"Using target layer '{target_layer}' for model '{model_name}'")
+
+    # Load class labels
     class_labels = load_class_labels(class_labels_file)
 
-    # load model
+    # Load model
     if weights_file:
         print(f"Loading {model_name} with custom weights...")
         model = getattr(models, model_name)(weights=None)
@@ -70,14 +103,10 @@ def heatmap():
         print(f"Loading {model_name} with PyTorch's pretrained weights...")
         model = getattr(models, model_name)(weights="IMAGENET1K_V1")
 
-
-    if target_layer not in dict(model.named_modules()):
-        return jsonify({"error": f"Invalid target layer '{target_layer}'"}), 400
-
     wrapped_model = CustomModelWrapper(model, target_layer)
     wrapped_model.eval()
 
-    # image transformation
+    # Define image transformation
     input_sizes = {"inception_v3": (299, 299)}
     resize_dim = input_sizes.get(model_name, (224, 224))
 
@@ -87,21 +116,22 @@ def heatmap():
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
 
-
+    # Process image
     img = Image.open(io.BytesIO(image_file.read())).convert("RGB")
     input_tensor = transform(img).unsqueeze(0)
 
-
+    # Forward pass
     output = wrapped_model(input_tensor)
     probabilities = F.softmax(output, dim=1).detach().cpu().numpy()
 
-    # predicted class
+    # Get predicted class
     predicted_class_idx = output.argmax(dim=1).item()
     predicted_class_name = class_labels.get(predicted_class_idx, f"Unknown ({predicted_class_idx})")
     predicted_class_prob = probabilities[0, predicted_class_idx] * 100
 
     print(f"Predicted Class: {predicted_class_name} ({predicted_class_prob:.2f}%)")
 
+    # Backpropagation
     wrapped_model.zero_grad()
     output[0, predicted_class_idx].backward()
 
@@ -109,15 +139,17 @@ def heatmap():
     pooled_gradients = torch.mean(gradients, dim=[0, 2, 3])
     activations = wrapped_model.get_activations(input_tensor).detach()
 
-    # Grad-CAM
+    # Apply Grad-CAM
     for i in range(activations.shape[1]):
         activations[:, i, :, :] *= pooled_gradients[i]
 
     heatmap = torch.mean(activations, dim=1).squeeze().cpu().numpy()
     heatmap = np.maximum(heatmap, 0)
 
-    # heatmap
+    threshold = np.percentile(heatmap, 70)
+    heatmap[heatmap < threshold] = 0
     heatmap /= np.max(heatmap)
+
     heatmap_resized = cv2.resize(heatmap, (img.width, img.height))
     heatmap_resized = np.uint8(255 * heatmap_resized)
     heatmap_colormap = cv2.applyColorMap(heatmap_resized, cv2.COLORMAP_JET)
@@ -125,14 +157,15 @@ def heatmap():
     original_img = np.array(img)
     overlay = cv2.addWeighted(original_img, 0.5, heatmap_colormap, 0.5, 0)
 
-    # image to base64
+    # Convert image to base64
     _, buffer = cv2.imencode('.png', cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
     image_base64 = base64.b64encode(buffer).decode('utf-8')
 
     response = {
         "image": image_base64,
         "predicted_class": predicted_class_name,
-        "predicted_probability": f"{predicted_class_prob:.2f}%"
+        "predicted_probability": f"{predicted_class_prob:.2f}%",
+        "target_layer_used": target_layer
     }
 
     return jsonify(response), 200
@@ -146,7 +179,4 @@ def heatmap():
 # inception_v3 --> with target Mixed_7c 
 # densenet121, densenet169, densenet201, densenet161 --> with target features.norm5
 # mobilenet_v2 --> with target features.18  
-# efficientnet_b0, efficientnet_b1, ..., efficientnet_b7 --> with target features.7 
-# squeezenet1_0, squeezenet1_1 --> with target features.12  --> NOT
 # shufflenet_v2_x0_5, shufflenet_v2_x1_0 --> with target conv5
-# mnasnet0_5, mnasnet1_0 --> with target layers[-1] --> NOT 

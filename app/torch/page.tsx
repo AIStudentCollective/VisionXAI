@@ -4,51 +4,58 @@ import React, { useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
+import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenuContent } from "@/components/ui/dropdown-menu";
 
 export default function Torch() {
+  const [step, setStep] = useState(1);
   const [modelName, setModelName] = useState("");
   const [weightsFile, setWeightsFile] = useState<File | null>(null);
-  const [targetLayer, setTargetLayer] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [classLabelsFile, setClassLabelsFile] = useState<File | null>(null);
   const [visualizationUrl, setVisualizationUrl] = useState<string | null>(null);
   const [predictionInfo, setPredictionInfo] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [architectureSelected, setArchitectureSelected] = useState(false);
+  const [customModelFile, setCustomModelFile] = useState<File | null>(null);
+  const [weightsSelected, setWeightsSelected] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
 
-  const handleFileUpload =
-    (setter: React.Dispatch<React.SetStateAction<File | null>>) =>
+  const handleFileUpload = (setter: React.Dispatch<React.SetStateAction<File | null>>, setFlag?: React.Dispatch<React.SetStateAction<boolean>>) => 
     (event: React.ChangeEvent<HTMLInputElement>) => {
       if (event.target.files) {
         setter(event.target.files[0]);
+        if (setFlag) setFlag(true);
       }
     };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSubmit = async () => {
     setIsLoading(true);
     setError(null);
 
-    if (!modelName || !targetLayer || !imageFile || !classLabelsFile) {
-      setError("Error: Model name, target layer, image file, and class labels CSV are required.");
+    if (!modelName || !imageFile || !classLabelsFile) {
+      setError("Error: Model name, image file, and class labels CSV are required.");
       setIsLoading(false);
       return;
     }
 
     const formData = new FormData();
     formData.append("model_name", modelName);
-    formData.append("target_layer", targetLayer);
     formData.append("image_path", imageFile as File);
     formData.append("class_labels_csv", classLabelsFile as File);
-    if (weightsFile) formData.append("weights_path", weightsFile);
+    if (!weightsSelected && weightsFile) {
+      formData.append("weights_path", weightsFile);
+    }
 
     try {
       const response = await fetch("/api/pytorch/heatmap", { method: "POST", body: formData });
-
       if (!response.ok) {
         throw new Error("Failed to generate Grad-CAM visualization.");
       }
-
       const result = await response.json();
       setVisualizationUrl(`data:image/png;base64,${result.image}`);
       setPredictionInfo(`Predicted Class: ${result.predicted_class} (${result.predicted_probability})`);
@@ -59,84 +66,274 @@ export default function Torch() {
     }
   };
 
+  // Drag-and-drop handlers
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragActive(true);
+  };
+
+  const handleDragLeave = () => {
+    setDragActive(false);
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragActive(false);
+    if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+      setImageFile(event.dataTransfer.files[0]);
+    }
+  };
+
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Grad-CAM Visualization</h1>
+    <div className="min-h-screen flex items-center justify-center bg-black mt-32">
+      <div className="bg-white p-6 shadow-lg w-[70vh] h-[65vh] relative flex flex-col justify-center items-center">
+      {step === 1 && (
+        <>
+            <h1 className="absolute top-8 left-14 text-[36px] font-normal text-black">Upload Image</h1>
 
-      {isLoading && <p>Loading...</p>}
-      {error && <p className="text-red-500">Error: {error}</p>}
+            <div
+              className={`w-[35vh] h-[33vh] border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-center p-6 mt-28 transition-all duration-200 ${
+                dragActive ? "bg-[#F6F2FF] border-purple-600" : "bg-white border-purple-500"
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <Label htmlFor="model_name">Model Name</Label>
-          <Input
-            id="model_name"
-            type="text"
-            value={modelName}
-            onChange={(e) => setModelName(e.target.value)}
-            placeholder="e.g., densenet121, resnet50"
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="weights_path">Weights File (Optional)</Label>
-          <Input
-            id="weights_path"
-            type="file"
-            accept=".pth,.tar"
-            onChange={handleFileUpload(setWeightsFile)}
-          />
-          <p className="text-sm text-gray-500">Leave blank to use PyTorch pretrained weights</p>
-        </div>
-        <div>
-          <Label htmlFor="target_layer">Target Layer <span className="text-red-500">*</span></Label>
-          <Input
-            id="target_layer"
-            type="text"
-            value={targetLayer}
-            onChange={(e) => setTargetLayer(e.target.value)}
-            placeholder="e.g., features"
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="image_path">Image File <span className="text-red-500">*</span></Label>
-          <Input
-            id="image_path"
-            type="file"
-            accept="image/*"
-            onChange={handleFileUpload(setImageFile)}
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="class_labels_csv">Class Labels CSV <span className="text-red-500">*</span></Label>
+              <img
+                src="/images/mage_image-upload.svg"
+                alt="Upload Icon"
+                className="w-24 h-24"
+              />
+
+              {imageFile ? (
+                <p className="bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] bg-clip-text text-transparent text-[18px] font-normal mt-2">{imageFile.name}</p>
+              ) : (
+                <>
+                  <p className="bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] bg-clip-text text-transparent text-[18px] font-normal mt-2">
+                    Drag and drop an image
+                  </p>
+                  <p className="bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] bg-clip-text text-transparent text-[18px] font-normal">or</p>
+                </>
+              )}
+
+              <label className="cursor-pointer bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] text-white text-[16px] font-medium py-2 px-14 rounded-xl mt-2 inline-block">
+                {imageFile ? "Change file" : "Select file"}
+                <input
+                  id="image_path"
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileUpload(setImageFile)}
+                  required
+                />
+              </label>
+            </div>
+
+            <Button
+              className="mt-auto ml-auto bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] text-white text-[20px] font-normal px-10 py-6 rounded-lg"
+              onClick={() => setStep(2)}
+            >
+              Next
+            </Button>
+        </>
+      )}
+
+
+      {step === 2 && (
+          <>
+            <h1 className="absolute top-8 left-14 text-[36px] font-normal text-black">Select Architecture</h1>
+
+            <div className="flex justify-between items-start w-full mt-28">
+            <div className="relative inline-block bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] p-[1px] rounded-[13px] ml-8">
+              <label className="flex items-center justify-center cursor-pointer bg-white text-black text-[16px] font-medium px-6 py-2 rounded-xl">
+                Upload custom file
+                <Input
+                  type="file"
+                  accept=".py"
+                  className="hidden"
+                  disabled={!!modelName} // Disable if an architecture is selected
+                  onChange={(e) => {
+                    if (e.target.files?.length) {
+                      setCustomModelFile(e.target.files[0]);
+                      setModelName(""); // Clear architecture selection
+                      setArchitectureSelected(false);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="w-[25vh] p-2 border rounded-xl shadow-md mr-8 text-[#737373] text-[16px] font-medium bg-white">
+                    {modelName ? modelName : "Select an architecture"}
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent className="w-[25vh] max-h-[200px] overflow-y-auto">
+                  {[
+                    "", "resnet18", "resnet34", "resnet50", "resnet101", "resnet152",
+                    "vgg11", "vgg13", "vgg16", "vgg19",
+                    "alexnet", "inception_v3",
+                    "densenet121", "densenet169", "densenet201", "densenet161",
+                    "mobilenet_v2", "shufflenet_v2_x0_5", "shufflenet_v2_x1_0",
+                  ].map((architecture) => (
+                    <DropdownMenuItem
+                      key={architecture}
+                      onSelect={() => {
+                        setModelName(architecture);
+                        setArchitectureSelected(true);
+                        setCustomModelFile(null); // Clear file upload if an architecture is selected
+                      }}
+                      className="cursor-pointer px-4 py-2 text-[#737373] text-[16px] font-medium transition-all 
+                      hover:!bg-[#F6F2FF] hover:!text-black hover:!border hover:!border-[#4918B2]
+                      focus:!bg-[#F6F2FF] focus:!text-black focus:!border focus:!border-[#4918B2] 
+                      rounded-md"
+                    >
+                      {architecture}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            {customModelFile && (
+              <p className="bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] bg-clip-text text-transparent text-[18px] font-normal mt-2">{customModelFile.name}</p>
+            )}
+
+            <div className="flex justify-between items-center mt-auto w-full">
+              <Button
+                className="mt-6 bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] text-white text-[20px] font-normal px-10 py-6 rounded-lg"
+                onClick={() => setStep(1)}
+              >
+                Back
+              </Button>
+              <Button
+                className="mt-6 bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] text-white text-[20px] font-normal px-10 py-6 rounded-lg"
+                onClick={() => setStep(3)}
+              >
+                Next
+              </Button>
+            </div>
+        </>
+      )}
+
+      {step === 3 && (
+        <>
+          <h1 className="absolute top-8 left-14 text-[36px] font-normal text-black">Select Weight</h1>
+
+          <div className="flex justify-between items-start w-full mt-28">
+            <div className="relative inline-block bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] p-[1px] rounded-[13px] ml-8">
+              <label className="block bg-white text-black text-[16px] font-medium px-6 py-2 rounded-xl cursor-pointer">
+                Upload custom file
+                <Input
+                  type="file"
+                  accept=".pt, .pth, .tar"
+                  className="hidden"
+                  disabled={weightsSelected} // Disabled when Default is selected
+                  onChange={handleFileUpload(setWeightsFile, () => setWeightsSelected(false))}
+                />
+              </label>
+            </div>
+
+            {/* Default Button */}
+            <div className="relative inline-block bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] p-[1px] rounded-[13px] mr-8">
+              <Button
+                variant="outline"
+                className="bg-white text-black text-[16px] font-medium px-16 py-4 rounded-xl"
+                onClick={() => {
+                  setWeightsSelected((prev) => !prev); // Toggle Default selection
+                  if (!weightsSelected) {
+                    setWeightsFile(null); // Clear file when selecting Default
+                  }
+                }}
+              >
+                Default
+              </Button>
+            </div>
+          </div>
+
+          {weightsFile && <p className="bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] bg-clip-text text-transparent text-[18px] font-normal mt-2 text-center">{weightsFile.name} uploaded</p>}
+
+          <div className="mt-8">
+          <Label htmlFor="class_labels_csv" className="text-black text-[16px] font-medium">Class Labels CSV</Label>
           <Input
             id="class_labels_csv"
             type="file"
-            accept=".csv"
-            onChange={handleFileUpload(setClassLabelsFile)}
+            className="block w-full text-sm text-gray-500 border border-gray-300 rounded-lg cursor-pointer"
+            onChange={(e) => {
+              if (e.target.files?.length) {
+                setClassLabelsFile(e.target.files[0]); // Save uploaded file
+              }
+            }}
             required
           />
-        </div>
-        <SubmitButton pendingText="Processing...">Generate</SubmitButton>
-      </form>
-
-      {visualizationUrl && (
-        <div className="mt-8">
-          <h2 className="text-xl font-medium">Heatmap</h2>
-          <img
-            src={visualizationUrl}
-            alt="Grad-CAM Output"
-            className="max-w-full max-h-[500px] border rounded shadow-lg"
-          />
-          <div className="mt-4 text-sm text-foreground">
-            {predictionInfo?.split("\n").map((line, idx) => (
-              <p key={idx}>{line}</p>
-            ))}
           </div>
-        </div>
+
+          <div className="flex justify-between items-center mt-auto w-full">
+            <Button
+              className="bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] text-white text-[20px] font-normal px-10 py-6 rounded-lg"
+              onClick={() => setStep(2)}
+            >
+              Back
+            </Button>
+
+            <SubmitButton
+              className="bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] text-white text-[20px] font-normal px-10 py-6 rounded-lg"
+              pendingText="Processing..."
+              onClick={async () => {
+                setIsLoading(true);
+                await handleSubmit(); // Call backend and wait for response
+                setIsLoading(false); 
+
+                // Navigate only if visualizationUrl is set (response received)
+                if (visualizationUrl) {
+                  setStep(4);
+                }
+              }}
+              disabled={isLoading} // Disable button while request is processing
+            >
+              Done
+            </SubmitButton>
+          </div>
+        </>
       )}
+
+      {step === 4 && (
+        <>
+            <h2 className="absolute top-8 left-14 text-[36px] font-normal text-black">Generated Visualization</h2>
+            {visualizationUrl ? (
+              <>
+                <div className="flex flex-col justify-center items-center gap-4 mt-28">
+                  <img
+                    src={visualizationUrl}
+                    alt="Grad-CAM Output"
+                    className="max-w-[35vh] max-h-[35vh] border rounded shadow-lg"
+                  />
+
+                  <div className="text-sm text-foreground text-center">
+                    {predictionInfo?.split("\n").map((line, idx) => (
+                      <p key={idx}>{line}</p>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="text-gray-500 mt-4">Processing visualization...</p>
+            )}
+
+            <div className="mt-auto mr-auto">
+              <Button
+                className="bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] text-white text-[20px] font-normal px-10 py-6 rounded-lg"
+                onClick={() => setStep(3)}
+              >
+                Back
+              </Button>
+            </div>
+        </>
+      )}
+      
+      </div>
     </div>
   );
 }
