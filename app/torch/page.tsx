@@ -85,14 +85,14 @@ export default function Torch() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black mt-32">
-      <div className="bg-white p-6 shadow-lg w-[70vh] h-[65vh] relative flex flex-col justify-center items-center">
+    <div className="min-h-screen flex items-center justify-center bg-black pt-[4rem]">
+      <div className="bg-white p-6 shadow-lg w-[40rem] h-[36rem] relative flex flex-col justify-center items-center">
       {step === 1 && (
         <>
             <h1 className="absolute top-8 left-14 text-[36px] font-normal text-black">Upload Image</h1>
 
             <div
-              className={`w-[35vh] h-[33vh] border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-center p-6 mt-28 transition-all duration-200 ${
+              className={`w-[25rem] h-[22rem] border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-center p-6 mt-24 transition-all duration-200 ${
                 dragActive ? "bg-[#F6F2FF] border-purple-600" : "bg-white border-purple-500"
               }`}
               onDragOver={handleDragOver}
@@ -240,7 +240,8 @@ export default function Torch() {
             <div className="relative inline-block bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] p-[1px] rounded-[13px] mr-8">
               <Button
                 variant="outline"
-                className="bg-white text-black text-[16px] font-medium px-16 py-4 rounded-xl"
+                className={`w-full px-16 py-4 rounded-xl 
+                  ${weightsSelected ? "bg-[#F6F2FF] text-black text-[16px] font-medium" : "bg-white text-black text-[16px] font-medium"}`}
                 onClick={() => {
                   setWeightsSelected((prev) => !prev); // Toggle Default selection
                   if (!weightsSelected) {
