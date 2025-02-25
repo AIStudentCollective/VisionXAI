@@ -5,10 +5,18 @@ import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu } from "@/components/ui/dropdown-menu";
-import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { DropdownMenuContent } from "@/components/ui/dropdown-menu";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
+import { Check, ChevronDown, ChevronUp } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const architectures = [
+  "resnet18", "resnet34", "resnet50", "resnet101", "resnet152",
+  "vgg11", "vgg13", "vgg16", "vgg19",
+  "alexnet", "inception_v3",
+  "densenet121", "densenet169", "densenet201", "densenet161",
+  "mobilenet_v2", "shufflenet_v2_x0_5", "shufflenet_v2_x1_0",
+];
+
 
 export default function Torch() {
   const [step, setStep] = useState(1);
@@ -24,6 +32,8 @@ export default function Torch() {
   const [customModelFile, setCustomModelFile] = useState<File | null>(null);
   const [weightsSelected, setWeightsSelected] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [search, setSearch] = React.useState(""); // Search input state
+  const [open, setOpen] = useState(false);
 
   const handleFileUpload = (setter: React.Dispatch<React.SetStateAction<File | null>>, setFlag?: React.Dispatch<React.SetStateAction<boolean>>) => 
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,56 +155,100 @@ export default function Torch() {
 
             <div className="flex justify-between items-start w-full mt-28">
             <div className="relative inline-block bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] p-[1px] rounded-[13px] ml-8">
-              <label className="flex items-center justify-center cursor-pointer bg-white text-black text-[16px] font-medium px-6 py-2 rounded-xl">
+              <label className="flex items-center justify-center cursor-pointer bg-white text-black text-[16px] font-medium px-7 py-2 rounded-xl">
                 Upload custom file
                 <Input
                   type="file"
                   accept=".py"
                   className="hidden"
-                  disabled={!!modelName} // Disable if an architecture is selected
+                  disabled={!!modelName} 
                   onChange={(e) => {
                     if (e.target.files?.length) {
                       setCustomModelFile(e.target.files[0]);
-                      setModelName(""); // Clear architecture selection
+                      setModelName(""); 
                       setArchitectureSelected(false);
                     }
                   }}
                 />
               </label>
             </div>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="w-[25vh] p-2 border rounded-xl shadow-md mr-8 text-[#737373] text-[16px] font-medium bg-white">
-                    {modelName ? modelName : "Select an architecture"}
-                  </button>
-                </DropdownMenuTrigger>
-
-                <DropdownMenuContent className="w-[25vh] max-h-[200px] overflow-y-auto">
-                  {[
-                    "", "resnet18", "resnet34", "resnet50", "resnet101", "resnet152",
-                    "vgg11", "vgg13", "vgg16", "vgg19",
-                    "alexnet", "inception_v3",
-                    "densenet121", "densenet169", "densenet201", "densenet161",
-                    "mobilenet_v2", "shufflenet_v2_x0_5", "shufflenet_v2_x1_0",
-                  ].map((architecture) => (
-                    <DropdownMenuItem
-                      key={architecture}
-                      onSelect={() => {
-                        setModelName(architecture);
-                        setArchitectureSelected(true);
-                        setCustomModelFile(null); // Clear file upload if an architecture is selected
-                      }}
-                      className="cursor-pointer px-4 py-2 text-[#737373] text-[16px] font-medium transition-all 
-                      hover:!bg-[#F6F2FF] hover:!text-black hover:!border hover:!border-[#4918B2]
-                      focus:!bg-[#F6F2FF] focus:!text-black focus:!border focus:!border-[#4918B2] 
-                      rounded-md"
+          
+            <div className="relative mr-1 focus:outline-none"> 
+            <DropdownMenu.Root open={open} onOpenChange={setOpen}>
+              <DropdownMenu.Trigger asChild>
+                <button
+                  className="flex justify-between w-[12rem] items-center p-2 border rounded-xl shadow-md text-[#737373] text-[16px] font-normal bg-white mr-8"
+                  onClick={() => setOpen((prev) => !prev)} 
+                >
+                  {modelName ? modelName : "Select an architecture"}
+                  {open ? (
+                    <ChevronUp className="h-4 w-4 text-[#737373]" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-[#737373]" />
+                  )}
+                </button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  align="start"
+                  side="bottom"
+                  sideOffset={6} 
+                  className="w-[13rem] max-h-[15rem] p-2 bg-white shadow-lg rounded-md z-50 text-black overflow-y-auto"
+                  forceMount
+                >
+                  <div className="relative px-2 pb-2">
+                    <input
+                      type="text"
+                      placeholder="Find an architecture..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full px-2 py-2 text-[#737373] text-[16px] font-normal border-b focus:outline-none focus:border-[#4918B2]"
+                    />
+                  </div>
+                  <DropdownMenu.RadioGroup
+                    value={modelName}
+                    onValueChange={(value) => {
+                      setModelName(value);
+                      setArchitectureSelected(value !== "None");
+                      setCustomModelFile(null); 
+                    }}
+                  >
+                    <DropdownMenu.RadioItem
+                      value=""
+                      onSelect={(e) => e.preventDefault()} 
+                      className={cn(
+                        "flex justify-between items-center px-3 py-2 text-[16px] font-normal cursor-pointer rounded-md transition",
+                        "hover:bg-[#F6F2FF] hover:border hover:border-[#4918B2]",
+                        modelName === "" ? "bg-[#F6F2FF] border border-[#4918B2] text-[#1A1A1A] font-bold " : "text-[#484848]"
+                      )}
                     >
-                      {architecture}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                      None
+                      {!modelName && <Check className="w-4 h-4 text-[#4918B2]" />}
+                    </DropdownMenu.RadioItem>
+
+                    {architectures
+                      .filter((arch) => arch.toLowerCase().includes(search.toLowerCase()))
+                      .map((architecture) => (
+                        <DropdownMenu.RadioItem
+                          key={architecture}
+                          value={architecture}
+                          onSelect={(e) => e.preventDefault()} 
+                          className={cn(
+                            "flex justify-between items-center px-3 py-2 text-[16px] font-normal cursor-pointer rounded-md transition",
+                            "hover:bg-[#F6F2FF] hover:border hover:border-[#4918B2]",
+                            modelName === architecture ? "bg-[#F6F2FF] border border-[#4918B2] text-[#1A1A1A] font-bold " : "text-[#484848]"
+                          )}
+                        >
+                          {architecture}
+                          {modelName === architecture && <Check className="w-4 h-4 text-[#4918B2]" />}
+                        </DropdownMenu.RadioItem>
+                      ))}
+                  </DropdownMenu.RadioGroup>
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
+            </div>
+      
             </div>
 
             {customModelFile && (
