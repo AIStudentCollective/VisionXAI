@@ -43,38 +43,50 @@ export default function Torch() {
       }
     };
 
-  const handleSubmit = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    if (!modelName || !imageFile || !classLabelsFile) {
-      setError("Error: Model name, image file, and class labels CSV are required.");
-      setIsLoading(false);
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("model_name", modelName);
-    formData.append("image_path", imageFile as File);
-    formData.append("class_labels_csv", classLabelsFile as File);
-    if (!weightsSelected && weightsFile) {
-      formData.append("weights_path", weightsFile);
-    }
-
-    try {
-      const response = await fetch("/api/pytorch/heatmap", { method: "POST", body: formData });
-      if (!response.ok) {
-        throw new Error("Failed to generate Grad-CAM visualization.");
+    const handleSubmit = async () => {
+      setIsLoading(true);
+      setError(null);
+    
+      // Validate required inputs
+      if ((!modelName && !customModelFile) || !imageFile || !classLabelsFile) {
+        setError("Error: Model selection, image file, and class labels CSV are required.");
+        setIsLoading(false);
+        return;
       }
-      const result = await response.json();
-      setVisualizationUrl(`data:image/png;base64,${result.image}`);
-      setPredictionInfo(`Predicted Class: ${result.predicted_class} (${result.predicted_probability})`);
-    } catch (error) {
-      setError("Error processing request. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    
+      const formData = new FormData();
+    
+      if (customModelFile && weightsFile) {
+        // Use custom model if uploaded
+        formData.append("custom_model_file", customModelFile);
+        formData.append("custom_weights_file", weightsFile);
+      } else if (modelName) {
+        // Use pre-trained PyTorch model
+        formData.append("model_name", modelName);
+      }
+    
+      formData.append("image_path", imageFile as File);
+      formData.append("class_labels_csv", classLabelsFile as File);
+    
+      // Append optional pre-trained weights if not using a custom model
+      if (!customModelFile && !weightsSelected && weightsFile) {
+        formData.append("weights_path", weightsFile);
+      }
+    
+      try {
+        const response = await fetch("/api/pytorch/heatmap", { method: "POST", body: formData });
+        if (!response.ok) {
+          throw new Error("Failed to generate Grad-CAM visualization.");
+        }
+        const result = await response.json();
+        setVisualizationUrl(`data:image/png;base64,${result.image}`);
+        setPredictionInfo(`Predicted Class: ${result.predicted_class} (${result.predicted_probability})`);
+      } catch (error) {
+        setError("Error processing request. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
   // Drag-and-drop handlers
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
