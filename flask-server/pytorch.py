@@ -154,66 +154,180 @@ def heatmap():
 
 @pytorch_bp.route('/heatmap_vit', methods=['POST'])
 def vit_heatmap():
+
     model_name = request.form.get('model_name')
     weights_file = request.files.get('weights_path') 
     image_file = request.files['image_path']
     class_labels_file = request.files['class_labels_csv'] 
     num_classes = request.form.get('num_classes')
+    image_size = request.form.get('image_size')
 
-    supportedVITs = ['vit_b_16', 'vit_b_32', 'vit_l_16', 'vit_l_32', 'vit_h_14']  
+    if not model_name or not weights_file or not image_file or not class_labels_file or not num_classes or not image_size:
+        return jsonify("Unable to calculate attention rollout: insufficient data."), 500
 
-    if not model_name or not weights_file:
-        return jsonify({'Error: model name and weights file are required!'}), 400
-    
-    if model_name not in supportedVITs:
-        try:
-            model = vit_attention_rollout.loadHFModel(model_name, weights_file)
-            model.eval()
-        except Exception as e:
-            return jsonify({f'Error in loading model {e}'}), 500
-        try:
-            tensor = vit_attention_rollout.preprocessHFImage(image_file, model)
-        except Exception as e:
-            return jsonify({f'Error in loading weights: {e}'}), 500
-    else:
-        try:
-            model = vit_attention_rollout.loadModel(model_name, weights_file)
-        except Exception as e:
-            return jsonify({f'Error in loading model {e}'}), 500
-        try:
-            tensor = vit_attention_rollout.preprocessImage(image_file, model)
-        except Exception as e:
-            return jsonify({f'Error in loading weights: {e}'}), 500
-        
     try:
-        labels = vit_attention_rollout.loadCSV(class_labels_file)
+        response = vit_attention_rollout.makeRollout(
+            model_name, 
+            weights_file, 
+            image_file, 
+            class_labels_file, 
+            num_classes, 
+            image_size
+        )
     except Exception as e:
-        return jsonify({f'Error loading CSV file labels: {e}'}), 500
-    
-    try:
-        input_size = model.image_size[0] if hasattr(model, 'image_size') else 224
-        attention_matrices_list = []
-        vit_attention_rollout.registerAttHooks(model, attention_matrices_list)
+        return jsonify('Error in attention rollout.'), 500
+    return jsonify(response), 200
 
-        with torch.no_grad():
-            output = model(tensor)
-            predicted_class_index = torch.argmax(output, dim=1).item()
-            predicted_class_label = labels.get(predicted_class_index, f"Class {predicted_class_index}")
+# Acceptable models include:
+"""
+vit_base_mci_224
+vit_base_patch8_224
+vit_base_patch14_dinov2
+vit_base_patch14_reg4_dinov2
+vit_base_patch16_18x2_224
+vit_base_patch16_224
+vit_base_patch16_224_miil
+vit_base_patch16_384
+vit_base_patch16_clip_224
+vit_base_patch16_clip_384
+vit_base_patch16_clip_quickgelu_224
+vit_base_patch16_gap_224
+vit_base_patch16_plus_240
+vit_base_patch16_plus_clip_240
+vit_base_patch16_reg4_gap_256
+vit_base_patch16_rope_reg1_gap_256
+vit_base_patch16_rpn_224
+vit_base_patch16_siglip_224
+vit_base_patch16_siglip_256
+vit_base_patch16_siglip_384
+vit_base_patch16_siglip_512
+vit_base_patch16_siglip_gap_224
+vit_base_patch16_siglip_gap_256
+vit_base_patch16_siglip_gap_384
+vit_base_patch16_siglip_gap_512
+vit_base_patch16_xp_224
+vit_base_patch32_224
+vit_base_patch32_384
+vit_base_patch32_clip_224
+vit_base_patch32_clip_256
+vit_base_patch32_clip_384
+vit_base_patch32_clip_448
+vit_base_patch32_clip_quickgelu_224
+vit_base_patch32_plus_256
+vit_base_r26_s32_224
+vit_base_r50_s16_224
+vit_base_r50_s16_384
+vit_base_resnet26d_224
+vit_base_resnet50d_224
+vit_betwixt_patch16_gap_256
+vit_betwixt_patch16_reg1_gap_256
+vit_betwixt_patch16_reg4_gap_256
+vit_betwixt_patch16_reg4_gap_384
+vit_betwixt_patch16_rope_reg4_gap_256
+vit_betwixt_patch32_clip_224
+vit_giant_patch14_224
+vit_giant_patch14_clip_224
+vit_giant_patch14_dinov2
+vit_giant_patch14_reg4_dinov2
+vit_giant_patch16_gap_224
+vit_gigantic_patch14_224
+vit_gigantic_patch14_clip_224
+vit_gigantic_patch14_clip_quickgelu_224
+vit_huge_patch14_224
+vit_huge_patch14_clip_224
+vit_huge_patch14_clip_336
+vit_huge_patch14_clip_378
+vit_huge_patch14_clip_quickgelu_224
+vit_huge_patch14_clip_quickgelu_378
+vit_huge_patch14_gap_224
+vit_huge_patch14_xp_224
+vit_huge_patch16_gap_448
+vit_intern300m_patch14_448
+vit_large_patch14_224
+vit_large_patch14_clip_224
+vit_large_patch14_clip_336
+vit_large_patch14_clip_quickgelu_224
+vit_large_patch14_clip_quickgelu_336
+vit_large_patch14_dinov2
+vit_large_patch14_reg4_dinov2
+vit_large_patch14_xp_224
+vit_large_patch16_224
+vit_large_patch16_384
+vit_large_patch16_siglip_256
+vit_large_patch16_siglip_384
+vit_large_patch16_siglip_gap_256
+vit_large_patch16_siglip_gap_384
+vit_large_patch32_224
+vit_large_patch32_384
+vit_large_r50_s32_224
+vit_large_r50_s32_384
+vit_little_patch16_reg1_gap_256
+vit_little_patch16_reg4_gap_256
+vit_medium_patch16_clip_224
+vit_medium_patch16_gap_240
+vit_medium_patch16_gap_256
+vit_medium_patch16_gap_384
+vit_medium_patch16_reg1_gap_256
+vit_medium_patch16_reg4_gap_256
+vit_medium_patch16_rope_reg1_gap_256
+vit_medium_patch32_clip_224
+vit_mediumd_patch16_reg4_gap_256
+vit_mediumd_patch16_reg4_gap_384
+vit_mediumd_patch16_rope_reg1_gap_256
+vit_pwee_patch16_reg1_gap_256
+vit_relpos_base_patch16_224
+vit_relpos_base_patch16_cls_224
+vit_relpos_base_patch16_clsgap_224
+vit_relpos_base_patch16_plus_240
+vit_relpos_base_patch16_rpn_224
+vit_relpos_base_patch32_plus_rpn_256
+vit_relpos_medium_patch16_224
+vit_relpos_medium_patch16_cls_224
+vit_relpos_medium_patch16_rpn_224
+vit_relpos_small_patch16_224
+vit_relpos_small_patch16_rpn_224
+vit_small_patch8_224
+vit_small_patch14_dinov2
+vit_small_patch14_reg4_dinov2
+vit_small_patch16_18x2_224
+vit_small_patch16_36x1_224
+vit_small_patch16_224
+vit_small_patch16_384
+vit_small_patch32_224
+vit_small_patch32_384
+vit_small_r26_s32_224
+vit_small_r26_s32_384
+vit_small_resnet26d_224
+vit_small_resnet50d_s16_224
+vit_so150m2_patch16_reg1_gap_256
+vit_so150m_patch16_reg4_gap_256
+vit_so150m_patch16_reg4_gap_384
+vit_so150m_patch16_reg4_map_256
+vit_so400m_patch14_siglip_224
+vit_so400m_patch14_siglip_378
+vit_so400m_patch14_siglip_384
+vit_so400m_patch14_siglip_gap_224
+vit_so400m_patch14_siglip_gap_378
+vit_so400m_patch14_siglip_gap_384
+vit_so400m_patch14_siglip_gap_448
+vit_so400m_patch14_siglip_gap_896
+vit_so400m_patch16_siglip_256
+vit_so400m_patch16_siglip_gap_256
+vit_srelpos_medium_patch16_224
+vit_srelpos_small_patch16_224
+vit_tiny_patch16_224
+vit_tiny_patch16_384
+vit_tiny_r_s16_p8_224
+vit_tiny_r_s16_p8_384
+vit_wee_patch16_reg1_gap_256
+vit_xsmall_patch16_clip_224
 
-        if not attention_matrices_list:
-            return jsonify({'No attention matrices captured. Attention rollout visualization cannot be generated.'}), 500
-        
-        attentions = [attn.cpu() for attn in attention_matrices_list]
-        rollout_map = vit_attention_rollout.computeRollout(attentions)
-
-        img_base64 = vit_attention_rollout.visualizeRollout(rollout_map, image_file, patch_size=model.patch_size[0] if hasattr(model, 'patch_size') else 16)
-
-        response = {
-            'base64_image': img_base64,
-            'predicted_class_label': predicted_class_label,
-            'predicted_class_index': predicted_class_index
-        }
-        return jsonify(response), 200
-    
-    except Exception as e:
-        return jsonify(f'Error in attention rollout implementation: {e}'), 500
+deit_base_distilled_patch16_224
+deit_base_distilled_patch16_384
+deit_base_patch16_224
+deit_base_patch16_384
+deit_small_distilled_patch16_224
+deit_small_patch16_224
+deit_tiny_distilled_patch16_224
+deit_tiny_patch16_224
+"""

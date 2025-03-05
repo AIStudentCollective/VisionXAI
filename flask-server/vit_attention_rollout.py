@@ -9,150 +9,151 @@ import json
 import pandas as pd
 import io
 import base64
-from transformers import AutoImageProcessor, AutoModelForImageClassification, AutoFeatureExtractor
+import cv2
+import seaborn as sns
+from tqdm.auto import tqdm
+import timm
+# from transformers import AutoImageProcessor, AutoModelForImageClassification, AutoFeatureExtractor
 
-# For HF ViTs
-def loadHFModel(modelName, weightsFilePath=None, num_classes=2):
-    model = AutoModelForImageClassification.from_pretrained(modelName)
-    state_dict = torch.load(weightsFilePath, map_location=torch.device('cpu'))
-    model.load_state_dict(state_dict)
-    model.eval()
-    feature_extractor = AutoFeatureExtractor.from_pretrained(modelName)
-    return model, feature_extractor
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-def computeRollout(model, feature_extractor, image_path, labels, num_classes):
-    preprocess = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
-    ])
+def readConfig(config_file):
+    with open(config_file) as file:
+        data = json.load(file)
+    return data
+
+def preprocessImage(image, image_size=224):
+    img = Image.open(image).convert('RGB')
+    transform = transforms.Compose([transforms.Resize(249, 3), 
+                            transforms.CenterCrop(image_size), 
+                            transforms.ToTensor(), 
+                            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    return transform(img)
+
+def my_forward_wrapper(attn_obj):
+    def my_forward(x):
+        B, N, C = x.shape
+        qkv = attn_obj.qkv(x).reshape(B, N, 3, attn_obj.num_heads, C // attn_obj.num_heads).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv.unbind(0)   
+
+        attn = (q @ k.transpose(-2, -1)) * attn_obj.scale
+        attn = attn.softmax(dim=-1)
+        attn = attn_obj.attn_drop(attn)
+        attn_obj.attn_map = attn
+        attn_obj.cls_attn_map = attn[:, :, 0, 1:]
+
+        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        x = attn_obj.proj(x)
+        x = attn_obj.proj_drop(x)
+        return x
+    return my_forward
+
+def attention_rollout_function(attn_maps):
+    attn_rollout = []
+    I = torch.eye(attn_maps[0].shape[-1])  # Identity matrix
+    prod = I
+    for i, attn_map in enumerate(attn_maps):
+        prod = prod @ (attn_map + I)  # Product of attention maps with identity matrix
+        
+        prod = prod / prod.sum(dim=-1, keepdim=True) # Normalize
+        attn_rollout.append(prod)
+    return attn_rollout
+
+def loadModel(model_name, weights_file):
+    if model_name.contains('vit') or model_name.contains('deit'):
+        model = timm.create_model(model_name).to(device)
+    else:
+        return Exception(f'Model {model_name} unsupported. Only Facebook\'s DeiTs and Google\'s ViTs are supported right now.')
     
-    image = Image.open(image_path).convert("RGB")
-    image_tensor = preprocess(image).unsqueeze(0)
-    inputs = feature_extractor(images=image, return_tensors="pt")
-
-
-#---- For Pytorch ViTs -----
-def loadModel(modelName, weightsFilePath, numClasses=2):
-    # Load model
-    try:
-        model = models.get_model(modelName, weights=None)
-        print(f'Loaded model for {modelName} from Pytorch pretrained models.')
-    except Exception as e:
-        raise ValueError(f'Error loading model: {e}')
-
-    # Adjust classification according to labels
-    try:
-        numClassesLocal = numClasses
-        if (numClassesLocal != 1000):
-            # Replace classification head
-            if hasattr(model, 'heads') and hasattr(model.heads, 'head'):
-                inFeatures = model.heads.head.in_features
-                model.heads.head = nn.Linear(inFeatures, numClassesLocal)
-                print(f"Replaced classifier head to output {numClassesLocal} classes.")
-            # Replace classifier head (for older ViT models)
-            elif hasattr(model, 'classifier'):
-                inFeatures = model.classifier[1].in_features if isinstance(model.classifier, nn.Sequential) else model.classifier.in_features
-                model.classifier = nn.Linear(inFeatures, numClassesLocal)
-                print(f"Replaced classifier layer to output {numClassesLocal} classes (using 'classifier' attribute).")
-    except Exception as e:
-        raise ValueError(f'Error adjusting classification head: {e}')
-    # Load weights
-    try:
-        model.load_state_dict(torch.load(weightsFilePath, weights_only=True, map_location=torch.device('cpu')))
-        print(f'Loaded weights from {weightsFilePath}')
-    except Exception as e:
-        raise ValueError(f'Error in loading weights: {e}')
-
-    model.to('cpu').eval()
+    if weights_file:
+        model.load_state_dict(torch.load(weights_file, weights_only=True, map_location=torch.device(device)))
+    
+    model.eval()
     return model
 
-def loadCsv(csvLabelFilePath):
+def readCSV(class_labels_file):
+    df = pd.read_csv(class_labels_file)
+    return df.to_dict()
+
+def makeRollout(model_name, weights_file, image_file, class_labels_file, num_attention_heads, image_size=224):
     try:
-        labelsDf = pd.read_csv(csvLabelFilePath)
-        labels = labelsDf.set_index('index')['label'].to_dict()
-        return labels
+        model = loadModel(model_name, weights_file)
+        patch_size = model.patch_embed.patch_size 
+        num_patches = image_size/patch_size
+        class_labels = readCSV(class_labels_file)
+        data = readConfig()
+        num_attention_heads = data.get('num_attention_heads', 12)
+        img_tensor = preprocessImage(image_file, image_size)
+
+        model.blocks[-1].attn.forward = my_forward_wrapper(model.blocks[-1].attn)
+        y = model(img_tensor.unsqueeze(0).to(device))
+        attn_map = model.blocks[-1].attn.attn_map.mean(dim=1).squeeze(0).detach()
+        cls_weight = model.blocks[-1].attn.cls_attn_map.max(dim=1).values.view(num_patches, num_patches).detach()
+        img_resized = img_tensor.permute(1, 2, 0) * 0.5 + 0.5
+        cls_resized = F.interpolate(cls_weight.view(1, 1, num_patches, num_patches), (image_size, image_size), mode='bilinear').view(image_size, image_size, 1)
+        attn_map_cpu = attn_map.cpu()
+        cls_weight_cpu = cls_weight.cpu()
+
+        model = loadModel(model_name, weights_file)
+        for block in tqdm(model.blocks):
+            block.attn.forward = my_forward_wrapper(block.attn)
+
+        y = model(img_tensor.unsqueeze(0).to(device))
+        attn_maps = []
+        cls_weights = []
+        for block in tqdm(model.blocks):
+            attn_maps.append(block.attn.attn_map.max(dim=1).values.squeeze(0).detach())
+            cls_weights.append(block.attn.cls_attn_map.mean(dim=1).view(num_patches, num_patches).detach())
+
+        img_resized = img_tensor.permute(1, 2, 0) * 0.5 + 0.5
+
+        attn_maps_cpu = []
+        for i in range(num_attention_heads):
+            attn_map = attn_maps[i]
+            attn_map_cpu = attn_map.cpu()
+            attn_maps_cpu.append(attn_map_cpu)
+
+        cls_weights_cpu = []
+        for i in range(num_attention_heads):
+            cls_weight = cls_weights[i]
+            cls_weight_cpu = cls_weight.cpu()
+            cls_weights_cpu.append(cls_weight_cpu)
+
+        attn_rollout = attention_rollout_function(attn_maps_cpu)
+        cls_weights_rollout = []
+        cls_resized_rollout = []
+
+        for i in tqdm(range(num_attention_heads)):
+            cls_weights_rollout.append(attn_rollout[i][0, 1:])
+            cls_weights_rollout[i] = cls_weights_rollout[i].view(num_patches, num_patches)
+            cls_resized_rollout.append(F.interpolate(cls_weights_rollout[i].view(1, 1, num_patches, num_patches), (image_size, image_size), mode='bilinear').view(image_size, image_size, 1))
+
+        cls_weight = cls_weights_rollout[num_attention_heads-1]
+        cls_resized = F.interpolate(cls_weight.view(1, 1, num_patches, num_patches), (image_size, image_size), mode='bilinear').view(image_size, image_size, 1)
+
+        cls_weight = cls_weights_rollout[11]
+        cls_resized = F.interpolate(cls_weight.view(1, 1, num_patches, num_patches), (image_size, image_size), mode='bilinear').view(image_size, image_size, 1)
+        plt.imshow(img_resized)
+        plt.imshow(cls_resized, alpha=0.5)
+        plt.axis('off')
+        plt.title('Attention Rollout Visualization')
+        
+        imgBuf = io.BytesIO()
+        plt.savefig(imgBuf, format='png', bbox_inches='tight')
+        imgBuf.seek(0)
+        imageBase64 = base64.b64encode(imgBuf.read()).decode('utf-8')
+
+        probabilities = F.softmax(y, dim=1).squeeze(0).cpu().detach().numpy()
+        top_class = np.argmax(probabilities)
+        top_class_label = class_labels[str(top_class[0])]
+        top_class_prob = probabilities[top_class]
+
+        response = {
+            'base64': imageBase64,
+            'top_class_label': top_class_label,
+            'top_class_sprob': top_class_prob,
+        }
+        return response
+    
     except Exception as e:
-        raise ValueError(f'Error in loading csv labels file: {e}')
-
-def preprocessImage(model, imageFilePath):
-    try:
-        inputSize = tuple((224, 224))
-
-        transformPipeline = transforms.Compose([
-            transforms.Resize(inputSize, antialias=True),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
-        ])
-
-        img = Image.open(imageFilePath).convert('RGB')
-        imgTensor = transformPipeline(img).unsqueeze(0)
-        return imgTensor, img
-    except Exception as e:
-        raise ValueError(f'Error in preprocessing image: {e}')
-
-def computeRollout(attentions, discardRatio=0.9):
-    numLayers = len(attentions)
-    batchSize, numHeads, seqLen, _ = attentions[0].shape
-    identity = torch.eye(seqLen).to(attentions[0].device)
-    for layerAttn in attentions:
-        layerAttn = layerAttn.clone()
-        if discardRatio > 0:
-            _, sortedIndices = torch.sort(layerAttn.mean(dim=(-2, -1)))
-            discardNum = int(discardRatio * numHeads)
-            for i in range(discardNum):
-                layerAttn[:, sortedIndices[:, i], :, :] = 0
-        layerAttn = layerAttn / layerAttn.sum(dim=-1, keepdim=True)
-        resAttn = layerAttn @ identity
-        identity = resAttn
-    rollout = identity.mean(dim=1)
-    return rollout
-
-def visualizeRollout(rolloutMap, originalImagePath, outputPath="attention_rollout_vit.png", patchSize=16): # Same visualization
-    img = Image.open(originalImagePath).convert('RGB')
-    imgSize = img.size[0]
-    rolloutMapResized = torch.nn.functional.interpolate(
-        rolloutMap.unsqueeze(0).unsqueeze(0),
-        size=(imgSize, imgSize),
-        mode='bilinear',
-        align_corners=False
-    ).squeeze().cpu().numpy()
-    rolloutMapNormalized = (rolloutMapResized - rolloutMapResized.min()) / (rolloutMapResized.max() - rolloutMapResized.min())
-    fig, ax = plt.subplots(figsize=(10, 10))
-    ax.imshow(img, alpha=1.0)
-    ax.imshow(rolloutMapNormalized, cmap='jet', alpha=0.5)
-    ax.axis('off')
-    plt.title("Attention Rollout Visualization")
-
-    imgBuf = io.BytesIO()
-    plt.savefig(imgBuf, format='png', bbox_inches='tight')
-    imgBuf.seek(0)
-    imageBase64 = base64.b64encode(imgBuf.read()).decode('utf-8')
-
-    plt.close(fig)
-
-    return imageBase64
-
-def vitAttHook(module, input, output, attentionMatricesList):
-    attnWeights = output[1]
-    if attnWeights is not None:
-        attentionMatricesList.append(attnWeights)
-    else:
-        print(f"Attention weights are None in {module.__class__.__name__}. Skipping.")
-
-def registerAttHooks(model, attentionMatricesList):
-    hookedLayerCount = 0
-    for name, module in model.named_modules():
-        if isinstance(module, models.vision_transformer.VisionTransformerEncoder):
-            for blockIndex, block in enumerate(module.blocks):
-                if hasattr(block, 'attn') and isinstance(block.attn, nn.MultiheadAttention): # Check for attention layer in block
-                    attentionLayer = block.attn
-                    print(f"Registering hook on block {blockIndex}, Attention layer: {attentionLayer.__class__.__name__}")
-                    attentionLayer.register_forward_hook(lambda module, input, output: vitAttHook(module, input, output, attentionMatricesList)) # Using lambda to pass attentionMatricesList
-                    hookedLayerCount += 1
-    if hookedLayerCount == 0:
-        print("Warning: No MultiheadAttention layers found in the ViT model structure. Attention rollout may not be possible.")
-    else:
-        print(f"Registered forward hooks on {hookedLayerCount} MultiheadAttention layers.")
-
-
+        return ValueError(f'Attention rollout error. {e}')
