@@ -12,6 +12,7 @@ import base64
 import tempfile
 import os
 from importlib.util import spec_from_file_location, module_from_spec
+import vit_attention_rollout
 
 pytorch_bp = Blueprint('pytorch', __name__)
 
@@ -218,3 +219,184 @@ def heatmap():
 # densenet121, densenet169, densenet201, densenet161 --> with target features.norm5
 # mobilenet_v2 --> with target features.18  
 # shufflenet_v2_x0_5, shufflenet_v2_x1_0 --> with target conv5
+# mnasnet0_5, mnasnet1_0 --> with target layers[-1] --> NOT 
+
+@pytorch_bp.route('/heatmap_vit', methods=['POST'])
+def vit_heatmap():
+
+    model_name = request.form.get('model_name')
+    weights_file = request.files.get('weights_path') 
+    image_file = request.files['image_path']
+    class_labels_file = request.files['class_labels_csv'] 
+    num_classes = request.form.get('num_classes')
+    image_size = request.form.get('image_size')
+
+    if not model_name or not weights_file or not image_file or not class_labels_file or not num_classes or not image_size:
+        return jsonify("Unable to calculate attention rollout: insufficient data."), 500
+
+    try:
+        response = vit_attention_rollout.makeRollout(
+            model_name, 
+            weights_file, 
+            image_file, 
+            class_labels_file, 
+            num_classes, 
+            image_size
+        )
+    except Exception as e:
+        return jsonify('Error in attention rollout.'), 500
+    return jsonify(response), 200
+
+# Acceptable models include:
+"""
+vit_base_mci_224
+vit_base_patch8_224
+vit_base_patch14_dinov2
+vit_base_patch14_reg4_dinov2
+vit_base_patch16_18x2_224
+vit_base_patch16_224
+vit_base_patch16_224_miil
+vit_base_patch16_384
+vit_base_patch16_clip_224
+vit_base_patch16_clip_384
+vit_base_patch16_clip_quickgelu_224
+vit_base_patch16_gap_224
+vit_base_patch16_plus_240
+vit_base_patch16_plus_clip_240
+vit_base_patch16_reg4_gap_256
+vit_base_patch16_rope_reg1_gap_256
+vit_base_patch16_rpn_224
+vit_base_patch16_siglip_224
+vit_base_patch16_siglip_256
+vit_base_patch16_siglip_384
+vit_base_patch16_siglip_512
+vit_base_patch16_siglip_gap_224
+vit_base_patch16_siglip_gap_256
+vit_base_patch16_siglip_gap_384
+vit_base_patch16_siglip_gap_512
+vit_base_patch16_xp_224
+vit_base_patch32_224
+vit_base_patch32_384
+vit_base_patch32_clip_224
+vit_base_patch32_clip_256
+vit_base_patch32_clip_384
+vit_base_patch32_clip_448
+vit_base_patch32_clip_quickgelu_224
+vit_base_patch32_plus_256
+vit_base_r26_s32_224
+vit_base_r50_s16_224
+vit_base_r50_s16_384
+vit_base_resnet26d_224
+vit_base_resnet50d_224
+vit_betwixt_patch16_gap_256
+vit_betwixt_patch16_reg1_gap_256
+vit_betwixt_patch16_reg4_gap_256
+vit_betwixt_patch16_reg4_gap_384
+vit_betwixt_patch16_rope_reg4_gap_256
+vit_betwixt_patch32_clip_224
+vit_giant_patch14_224
+vit_giant_patch14_clip_224
+vit_giant_patch14_dinov2
+vit_giant_patch14_reg4_dinov2
+vit_giant_patch16_gap_224
+vit_gigantic_patch14_224
+vit_gigantic_patch14_clip_224
+vit_gigantic_patch14_clip_quickgelu_224
+vit_huge_patch14_224
+vit_huge_patch14_clip_224
+vit_huge_patch14_clip_336
+vit_huge_patch14_clip_378
+vit_huge_patch14_clip_quickgelu_224
+vit_huge_patch14_clip_quickgelu_378
+vit_huge_patch14_gap_224
+vit_huge_patch14_xp_224
+vit_huge_patch16_gap_448
+vit_intern300m_patch14_448
+vit_large_patch14_224
+vit_large_patch14_clip_224
+vit_large_patch14_clip_336
+vit_large_patch14_clip_quickgelu_224
+vit_large_patch14_clip_quickgelu_336
+vit_large_patch14_dinov2
+vit_large_patch14_reg4_dinov2
+vit_large_patch14_xp_224
+vit_large_patch16_224
+vit_large_patch16_384
+vit_large_patch16_siglip_256
+vit_large_patch16_siglip_384
+vit_large_patch16_siglip_gap_256
+vit_large_patch16_siglip_gap_384
+vit_large_patch32_224
+vit_large_patch32_384
+vit_large_r50_s32_224
+vit_large_r50_s32_384
+vit_little_patch16_reg1_gap_256
+vit_little_patch16_reg4_gap_256
+vit_medium_patch16_clip_224
+vit_medium_patch16_gap_240
+vit_medium_patch16_gap_256
+vit_medium_patch16_gap_384
+vit_medium_patch16_reg1_gap_256
+vit_medium_patch16_reg4_gap_256
+vit_medium_patch16_rope_reg1_gap_256
+vit_medium_patch32_clip_224
+vit_mediumd_patch16_reg4_gap_256
+vit_mediumd_patch16_reg4_gap_384
+vit_mediumd_patch16_rope_reg1_gap_256
+vit_pwee_patch16_reg1_gap_256
+vit_relpos_base_patch16_224
+vit_relpos_base_patch16_cls_224
+vit_relpos_base_patch16_clsgap_224
+vit_relpos_base_patch16_plus_240
+vit_relpos_base_patch16_rpn_224
+vit_relpos_base_patch32_plus_rpn_256
+vit_relpos_medium_patch16_224
+vit_relpos_medium_patch16_cls_224
+vit_relpos_medium_patch16_rpn_224
+vit_relpos_small_patch16_224
+vit_relpos_small_patch16_rpn_224
+vit_small_patch8_224
+vit_small_patch14_dinov2
+vit_small_patch14_reg4_dinov2
+vit_small_patch16_18x2_224
+vit_small_patch16_36x1_224
+vit_small_patch16_224
+vit_small_patch16_384
+vit_small_patch32_224
+vit_small_patch32_384
+vit_small_r26_s32_224
+vit_small_r26_s32_384
+vit_small_resnet26d_224
+vit_small_resnet50d_s16_224
+vit_so150m2_patch16_reg1_gap_256
+vit_so150m_patch16_reg4_gap_256
+vit_so150m_patch16_reg4_gap_384
+vit_so150m_patch16_reg4_map_256
+vit_so400m_patch14_siglip_224
+vit_so400m_patch14_siglip_378
+vit_so400m_patch14_siglip_384
+vit_so400m_patch14_siglip_gap_224
+vit_so400m_patch14_siglip_gap_378
+vit_so400m_patch14_siglip_gap_384
+vit_so400m_patch14_siglip_gap_448
+vit_so400m_patch14_siglip_gap_896
+vit_so400m_patch16_siglip_256
+vit_so400m_patch16_siglip_gap_256
+vit_srelpos_medium_patch16_224
+vit_srelpos_small_patch16_224
+vit_tiny_patch16_224
+vit_tiny_patch16_384
+vit_tiny_r_s16_p8_224
+vit_tiny_r_s16_p8_384
+vit_wee_patch16_reg1_gap_256
+vit_xsmall_patch16_clip_224
+
+deit_base_distilled_patch16_224
+deit_base_distilled_patch16_384
+deit_base_patch16_224
+deit_base_patch16_384
+deit_small_distilled_patch16_224
+deit_small_patch16_224
+deit_tiny_distilled_patch16_224
+deit_tiny_patch16_224
+"""
