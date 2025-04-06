@@ -39,7 +39,7 @@ export default function RootLayout({
           <div className="absolute top-0 left-0 w-full flex justify-between px-10 py-6">
             <img src="/images/logo.svg" alt="Logo" className="w-60 h-60"/>
             <div className="flex flex-row p-5 mt-20"> 
-              <Link href="" className="mx-5">Home</Link>
+              <Link href="/" className="mx-5">Home</Link>
               <Link href="" className="mx-5">Documents</Link>
               <Link href="" className="mx-5">Support</Link>
               <Link href="" className="mx-5">Privacy Policy</Link>
