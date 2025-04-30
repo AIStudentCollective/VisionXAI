@@ -15,7 +15,8 @@ const supportedArchitectures = [
   'ResNet50',
   'VGG16',
   'InceptionV3',
-  'Custom'
+  'Transformer (Google Base)',
+  'Custom',
 ];
 
 export default function TensorflowSupportPage() {
@@ -57,21 +58,30 @@ export default function TensorflowSupportPage() {
     if (image) formData.append('image', image);
     formData.append('architecture', selectedArchitecture);
 
-    // Only add class names & weights if not using ViT
-    if (selectedArchitecture !== 'ViT') {
+    // Only add class names & weights if not using Transformer
+    if (selectedArchitecture !== 'Transformer (Google Base)') {
       if (classNames) formData.append('class_names', classNames);
       if (weights) formData.append('weights', weights);
     }
 
     try {
-      const response = await fetch('/api/tensorflow/heatmap', {
+      const response = await fetch('http://localhost:5001/process-image', {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error || 'Network response was not ok');
+        // Get response as text first
+        const errorText = await response.text();
+        
+        // Try to parse it as JSON
+        try {
+          const errorJson = JSON.parse(errorText);
+          throw new Error(errorJson.error || 'Network response was not ok');
+        } catch (parseError) {
+          // If parsing fails, use the text directly
+          throw new Error(errorText || `Server error: ${response.status}`);
+        }
       }
 
       const result = await response.json();
@@ -91,7 +101,7 @@ export default function TensorflowSupportPage() {
     if (step === 1) return !image;
     if (step === 2) return !selectedArchitecture;
     if (step === 3) {
-      if (selectedArchitecture === 'ViT') return false; // ViT doesn't need additional files
+      if (selectedArchitecture === 'Transformer (Google Base)') return false; // Transformer doesn't need additional files
       return !classNames || !weights;
     }
     return false;
@@ -195,10 +205,10 @@ export default function TensorflowSupportPage() {
         {step === 3 && (
           <>
             <h1 className="absolute top-8 left-14 text-4xl font-normal text-black">
-              {selectedArchitecture === 'ViT' ? 'Ready to Process' : 'Additional Files'}
+              {selectedArchitecture === 'Transformer (Google Base)' ? 'Ready to Process' : 'Additional Files'}
             </h1>
 
-            {selectedArchitecture === 'ViT' ? (
+            {selectedArchitecture === 'Transformer (Google Base)' ? (
               <div className="flex flex-col items-center justify-center mt-28 text-center">
                 <div className="text-lg text-gray-700 mb-8">
                   <p>Vision Transformer (ViT) models don't require additional files.</p>
@@ -263,7 +273,7 @@ export default function TensorflowSupportPage() {
                 <div className="flex flex-col justify-center items-center gap-4 mt-28">
                   <img
                     src={visualizationUrl}
-                    alt={selectedArchitecture === "ViT" ? "Attention Rollout" : "Grad-CAM Output"}
+                    alt={selectedArchitecture === "Transformer (Google Base)" ? "Attention Rollout" : "Grad-CAM Output"}
                     className="max-w-[35vh] max-h-[35vh] border rounded shadow-lg"
                   />
 
