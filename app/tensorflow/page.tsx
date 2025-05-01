@@ -1,51 +1,52 @@
 "use client";
 
 import React, { useState } from "react";
-import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu } from "@/components/ui/dropdown-menu";
-import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { DropdownMenuContent } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
-// Added ViT support as in your first version
 const supportedArchitectures = [
-  'ResNet50',
-  'VGG16',
-  'InceptionV3',
-  'Transformer (Google Base)',
-  'Custom',
+  "ResNet50",
+  "VGG16",
+  "InceptionV3",
+  "Transformer (Google Base)",
+  "Custom",
 ];
 
 export default function TensorflowSupportPage() {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState<number>(1);
+  const [image, setImage] = useState<File | null>(null);
   const [classNames, setClassNames] = useState<File | null>(null);
   const [weights, setWeights] = useState<File | null>(null);
-  const [image, setImage] = useState<File | null>(null);
-  const [selectedArchitecture, setSelectedArchitecture] = useState('');
+  const [selectedArch, setSelectedArch] = useState<string>("");
   const [visualizationUrl, setVisualizationUrl] = useState<string | null>(null);
   const [predictedClass, setPredictedClass] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [explanation, setExplanation] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleClassNamesUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      setClassNames(event.target.files[0]);
-    }
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) setImage(e.target.files[0]);
+  };
+  const handleClassNamesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) setClassNames(e.target.files[0]);
+  };
+  const handleWeightsUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) setWeights(e.target.files[0]);
   };
 
-  const handleWeightsUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      setWeights(event.target.files[0]);
-    }
-  };
-
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      setImage(event.target.files[0]);
-    }
+  const isNextDisabled = () => {
+    if (step === 1) return !image;
+    if (step === 2) return !selectedArch;
+    if (step === 3 && selectedArch !== "Transformer (Google Base)")
+      return !classNames || !weights;
+    return false;
   };
 
   const handleSubmit = async () => {
@@ -53,278 +54,298 @@ export default function TensorflowSupportPage() {
     setError(null);
     setVisualizationUrl(null);
     setPredictedClass(null);
+    setExplanation(null);
 
     const formData = new FormData();
-    if (image) formData.append('image', image);
-    formData.append('architecture', selectedArchitecture);
-
-    // Only add class names & weights if not using Transformer
-    if (selectedArchitecture !== 'Transformer (Google Base)') {
-      if (classNames) formData.append('class_names', classNames);
-      if (weights) formData.append('weights', weights);
+    if (image) formData.append("image", image);
+    formData.append("architecture", selectedArch);
+    if (selectedArch !== "Transformer (Google Base)") {
+      if (classNames) formData.append("class_names", classNames);
+      if (weights) formData.append("weights", weights);
     }
 
     try {
-      const response = await fetch('http://localhost:5001/process-image', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        // Get response as text first
-        const errorText = await response.text();
-        
-        // Try to parse it as JSON
+      const res = await fetch(
+        "http://localhost:5001/api/tensorflow/heatmap",
+        { method: "POST", body: formData }
+      );
+      if (!res.ok) {
+        const text = await res.text();
+        let msg = `Server error: ${res.status}`;
         try {
-          const errorJson = JSON.parse(errorText);
-          throw new Error(errorJson.error || 'Network response was not ok');
-        } catch (parseError) {
-          // If parsing fails, use the text directly
-          throw new Error(errorText || `Server error: ${response.status}`);
-        }
+          const j = JSON.parse(text);
+          msg = j.error || msg;
+        } catch {}
+        throw new Error(msg);
       }
-
-      const result = await response.json();
-      setVisualizationUrl(`data:image/png;base64,${result.image}`);
-      setPredictedClass(result.predicted_class);
-      setStep(4); // Advance to results page on success
-
-    } catch (error: any) {
-      console.error('Error:', error);
-      setError(error.message || "An unexpected error occurred.");
+      const json = await res.json();
+      setVisualizationUrl(`data:image/png;base64,${json.image}`);
+      setPredictedClass(json.predicted_class);
+      setExplanation(json.explanation);
+      setStep(4);
+    } catch (err: any) {
+      setError(err.message || "Unexpected error");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const isNextButtonDisabled = () => {
-    if (step === 1) return !image;
-    if (step === 2) return !selectedArchitecture;
-    if (step === 3) {
-      if (selectedArchitecture === 'Transformer (Google Base)') return false; // Transformer doesn't need additional files
-      return !classNames || !weights;
-    }
-    return false;
-  };
+  const stepTitles = [
+    "Upload image for visualization",
+    "Select Architecture",
+    "Additional Files",
+    "Model Visualization",
+  ];
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black pt-16">
-      <div className="bg-white p-6 shadow-lg w-[40rem] h-[36rem] relative flex flex-col justify-center items-center rounded-xl">
-        {step === 1 && (
-          <>
-            <h1 className="absolute top-8 left-14 text-4xl font-normal text-black">Upload Image</h1>
+    <div className="min-h-screen bg-black pt-16 px-6 flex justify-center items-center">
+      {/* Outer flex: sidebar + card */}
+      <div className="flex w-full max-w-6xl mx-auto items-start gap-8">
+        {/* ── Left Sidebar ── */}
+        <div className="w-1/3 text-white text-sm space-y-2">
+          <h2 className="text-xl font-semibold">Name</h2>
+          <span className="inline-block bg-gradient-to-r from-[#9333EA] to-[#6366F1] text-white px-3 py-1 rounded-full text-xs font-medium">
+            In Progress
+          </span>
+          <div className="mt-4 space-y-1">
+            <p>
+              <span className="text-gray-400">Database ID:</span>{" "}
+              <span className="text-white">41603</span>
+            </p>
+            <p>
+              <span className="text-gray-400">Date Created:</span>{" "}
+              <span className="text-white">2/26/2025</span>
+            </p>
+            <p>
+              <span className="text-gray-400">Institution:</span>{" "}
+              <span className="text-white">UC Davis</span>
+            </p>
+            <p>
+              <span className="text-gray-400">Creator:</span>{" "}
+              <span className="text-white">rbhiani</span>
+            </p>
+          </div>
 
-            <div className="w-[25rem] h-[22rem] border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-center p-6 mt-24 bg-white border-purple-500">
-              <img
-                src="/images/mage_image-upload.svg"
-                alt="Upload Icon"
-                className="w-24 h-24"
+          {/* ── Comments for Step 4 ── */}
+          {step === 4 && (
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold mb-2">Comments</h3>
+              <textarea
+                className="w-full h-32 bg-gray-200 rounded-lg p-3 resize-none mb-4"
+                placeholder="Add a comment…"
               />
+              <Button className="bg-transparent border border-[#9333EA] text-white px-6 py-2 rounded-lg">
+                Post Comment
+              </Button>
+            </div>
+          )}
+        </div>
 
-              {image ? (
-                <p className="bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] bg-clip-text text-transparent text-lg font-normal mt-2">{image.name}</p>
-              ) : (
-                <>
-                  <p className="bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] bg-clip-text text-transparent text-lg font-normal mt-2">
-                    Drag and drop an image
+        {/* ── Right Purple Card ── */}
+        <div className="flex-1 flex justify-center">
+          <div
+            className="
+              flex-1 
+              max-w-5xl 
+              min-h-[32rem] 
+              bg-[#150628] 
+              border border-[#9333EA] 
+              rounded-2xl 
+              shadow-[0_0_24px_#9333EA88] 
+              p-10 
+              space-y-8
+            "
+          >
+            {/* Breadcrumb */}
+            <p className="text-sm text-gray-400">
+              Name &gt; {stepTitles[step - 1]}
+            </p>
+
+            {/* Title */}
+            <h2 className="text-2xl font-semibold text-white">
+              {stepTitles[step - 1]}
+            </h2>
+
+            {/* Step Content */}
+            {step === 1 && (
+              <div className="flex flex-col items-center justify-center space-y-4">
+                <div className="h-60 w-full border-2 border-dashed border-[#9333EA] rounded-xl flex flex-col items-center justify-center p-4 text-sm text-center">
+                  <img
+                    src="/images/mage_image-upload.svg"
+                    alt="Upload Icon"
+                    className="w-16 h-16 mb-3"
+                  />
+                  <p>Choose a file or drag & drop it here</p>
+                  <p className="mt-1 text-xs text-gray-400">
+                    JPEG, PNG, PDG formats, up to 50MB
                   </p>
-                  <p className="bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] bg-clip-text text-transparent text-lg font-normal">or</p>
-                </>
+                  <label className="mt-3 cursor-pointer bg-white text-black text-sm font-medium px-6 py-2 rounded-lg shadow-sm hover:bg-gray-100 transition">
+                    {image ? image.name : "Browse File"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="flex flex-col items-center justify-center space-y-6">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="w-full p-2 border rounded-xl shadow-md text-[#DDD] bg-[#1F0B3A]">
+                      {selectedArch || "Select an architecture"}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-full max-h-48 overflow-y-auto bg-[#150628] border border-[#9333EA]">
+                    {supportedArchitectures.map((arch) => (
+                      <DropdownMenuItem
+                        key={arch}
+                        onSelect={() => setSelectedArch(arch)}
+                        className="px-4 py-2 hover:bg-[#2A124A] cursor-pointer"
+                      >
+                        {arch}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="flex flex-col items-center justify-center space-y-4">
+                {selectedArch === "Transformer (Google Base)" ? (
+                  <p className="text-center text-gray-200">
+                    Vision Transformer doesn’t require extra files.
+                  </p>
+                ) : (
+                  <div className="flex gap-4">
+                    <Label className="bg-white text-black px-4 py-2 rounded-lg cursor-pointer">
+                      {classNames ? classNames.name : "Class Names CSV"}
+                      <Input
+                        type="file"
+                        accept=".csv"
+                        className="hidden"
+                        onChange={handleClassNamesUpload}
+                      />
+                    </Label>
+                    <Label className="bg-white text-black px-4 py-2 rounded-lg cursor-pointer">
+                      {weights ? weights.name : "Weights File"}
+                      <Input
+                        type="file"
+                        className="hidden"
+                        onChange={handleWeightsUpload}
+                      />
+                    </Label>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {step === 4 && (
+              <div className="space-y-6 text-gray-200">
+                {/* Top Row: Locate + Image */}
+                <div className="flex justify-between items-start">
+                  <button className="text-purple-300 hover:text-white text-base font-medium">
+                    Locate in Database &rarr;
+                  </button>
+                  {visualizationUrl ? (
+                    <img
+                      src={visualizationUrl}
+                      alt="Heatmap"
+                      className="w-48 h-48 rounded-lg shadow-lg"
+                    />
+                  ) : (
+                    <p>Loading visualization…</p>
+                  )}
+                </div>
+
+                {/* Predicted Class */}
+                {predictedClass && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-white mb-1">
+                      Predicted class
+                    </h3>
+                    <p>{predictedClass}</p>
+                  </div>
+                )}
+
+                {/* Explanation */}
+                {explanation && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-white mb-1">
+                      Explanation
+                    </h3>
+                    <p className="whitespace-pre-line leading-relaxed">
+                      {explanation}
+                    </p>
+                  </div>
+                )}
+
+                {/* Save / Export */}
+                <div className="flex gap-4 pt-4">
+                  <Button className="bg-gradient-to-r from-purple-600 to-indigo-500 px-6 py-2 rounded-lg text-white">
+                    Save
+                  </Button>
+                  <Button className="bg-transparent border border-white text-white px-6 py-2 rounded-lg">
+                    Export
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Navigation */}
+            <div className="flex justify-between items-center pt-6">
+              {step > 1 ? (
+                <Button
+                  onClick={() => setStep(step - 1)}
+                  className="bg-gray-700 px-6 py-2 rounded-lg text-white"
+                >
+                  Back
+                </Button>
+              ) : (
+                <div />
               )}
 
-              <label className="cursor-pointer bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] text-white text-base font-medium py-2 px-14 rounded-xl mt-2 inline-block">
-                {image ? "Change file" : "Select file"}
-                <input
-                  id="image"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
-                  required
-                />
-              </label>
-            </div>
-
-            <Button
-              className="mt-auto ml-auto bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] text-white text-xl font-normal px-10 py-6 rounded-lg"
-              onClick={() => setStep(2)}
-              disabled={!image}
-            >
-              Next
-            </Button>
-          </>
-        )}
-
-        {step === 2 && (
-          <>
-            <h1 className="absolute top-8 left-14 text-4xl font-normal text-black">Select Architecture</h1>
-
-            <div className="flex justify-center items-center w-full mt-28">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="w-[25rem] p-2 border rounded-xl shadow-md text-[#737373] text-base font-medium bg-white">
-                    {selectedArchitecture ? selectedArchitecture : "Select an architecture"}
-                  </button>
-                </DropdownMenuTrigger>
-
-                <DropdownMenuContent className="w-[25rem] max-h-[200px] overflow-y-auto">
-                  {supportedArchitectures.map((architecture) => (
-                    <DropdownMenuItem
-                      key={architecture}
-                      onSelect={() => setSelectedArchitecture(architecture)}
-                      className="cursor-pointer px-4 py-2 text-[#737373] text-base font-medium transition-all 
-                      hover:!bg-[#F6F2FF] hover:!text-black hover:!border hover:!border-[#4918B2]
-                      focus:!bg-[#F6F2FF] focus:!text-black focus:!border focus:!border-[#4918B2] 
-                      rounded-md"
-                    >
-                      {architecture}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            <div className="flex justify-between items-center mt-auto w-full">
               <Button
-                className="mt-6 bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] text-white text-xl font-normal px-10 py-6 rounded-lg"
-                onClick={() => setStep(1)}
+                onClick={
+                  step < 3
+                    ? () => setStep(step + 1)
+                    : step === 3
+                    ? handleSubmit
+                    : () => {
+                        setStep(1);
+                        setImage(null);
+                        setClassNames(null);
+                        setWeights(null);
+                        setSelectedArch("");
+                        setVisualizationUrl(null);
+                        setPredictedClass(null);
+                        setExplanation(null);
+                        setError(null);
+                      }
+                }
+                disabled={isNextDisabled() || isLoading}
+                className="bg-gradient-to-r from-purple-600 to-indigo-500 px-6 py-2 rounded-lg text-white"
               >
-                Back
-              </Button>
-              <Button
-                className="mt-6 bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] text-white text-xl font-normal px-10 py-6 rounded-lg"
-                onClick={() => setStep(3)}
-                disabled={!selectedArchitecture}
-              >
-                Next
+                {step < 3
+                  ? "Next"
+                  : step === 3
+                  ? isLoading
+                    ? "Processing…"
+                    : "Done"
+                  : "New Analysis"}
               </Button>
             </div>
-          </>
-        )}
 
-        {step === 3 && (
-          <>
-            <h1 className="absolute top-8 left-14 text-4xl font-normal text-black">
-              {selectedArchitecture === 'Transformer (Google Base)' ? 'Ready to Process' : 'Additional Files'}
-            </h1>
-
-            {selectedArchitecture === 'Transformer (Google Base)' ? (
-              <div className="flex flex-col items-center justify-center mt-28 text-center">
-                <div className="text-lg text-gray-700 mb-8">
-                  <p>Vision Transformer (ViT) models don't require additional files.</p>
-                  <p className="mt-2">Click "Done" to process your image with ViT attention rollout.</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex justify-center items-start w-full mt-28 gap-6">
-                {/* Class Names CSV Button */}
-                <div className="relative inline-block bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] p-[1px] rounded-[13px]">
-                  <Label className="flex items-center justify-center cursor-pointer bg-white text-black text-base font-medium px-6 py-2 rounded-xl">
-                    {classNames ? classNames.name : "Class Names CSV"}
-                    <Input
-                      id="classNames"
-                      type="file"
-                      accept=".csv"
-                      className="hidden"
-                      onChange={handleClassNamesUpload}
-                    />
-                  </Label>
-                </div>
-
-                {/* Weights File Button */}
-                <div className="relative inline-block bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] p-[1px] rounded-[13px]">
-                  <Label className="flex items-center justify-center cursor-pointer bg-white text-black text-base font-medium px-6 py-2 rounded-xl">
-                    {weights ? weights.name : "Weights File"}
-                    <Input
-                      id="weights"
-                      type="file"
-                      className="hidden"
-                      onChange={handleWeightsUpload}
-                    />
-                  </Label>
-                </div>
-              </div>
+            {error && (
+              <p className="mt-4 text-sm text-red-400">{error}</p>
             )}
-
-            <div className="flex justify-between items-center mt-auto w-full">
-              <Button
-                className="bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] text-white text-xl font-normal px-10 py-6 rounded-lg"
-                onClick={() => setStep(2)}
-              >
-                Back
-              </Button>
-
-              <Button
-                className="bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] text-white text-xl font-normal px-10 py-6 rounded-lg"
-                onClick={handleSubmit}
-                disabled={isNextButtonDisabled() || isLoading}
-              >
-                {isLoading ? "Processing..." : "Done"}
-              </Button>
-            </div>
-          </>
-        )}
-
-        {step === 4 && (
-          <>
-            <h2 className="absolute top-8 left-14 text-4xl font-normal text-black">Generated Visualization</h2>
-            {visualizationUrl ? (
-              <>
-                <div className="flex flex-col justify-center items-center gap-4 mt-28">
-                  <img
-                    src={visualizationUrl}
-                    alt={selectedArchitecture === "Transformer (Google Base)" ? "Attention Rollout" : "Grad-CAM Output"}
-                    className="max-w-[35vh] max-h-[35vh] border rounded shadow-lg"
-                  />
-
-                  <div className="text-sm text-foreground text-center">
-                    {predictedClass && <p>Predicted Class: {predictedClass}</p>}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <p className="text-gray-500 mt-4">Processing visualization...</p>
-            )}
-
-            <div className="mt-auto ml-auto">
-              <Button
-                className="bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] text-white text-xl font-normal px-10 py-6 rounded-lg"
-                onClick={() => {
-                  // Reset state to start over
-                  setStep(1);
-                  setClassNames(null);
-                  setWeights(null);
-                  setImage(null);
-                  setSelectedArchitecture('');
-                  setVisualizationUrl(null);
-                  setPredictedClass(null);
-                }}
-              >
-                New Analysis
-              </Button>
-            </div>
-          </>
-        )}
-
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80">
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <p className="text-xl font-medium">Processing...</p>
-            </div>
           </div>
-        )}
-        
-        {error && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-md">
-            <p>{error}</p>
-            <button 
-              className="absolute top-1 right-1 text-red-500"
-              onClick={() => setError(null)}
-            >
-              ×
-            </button>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

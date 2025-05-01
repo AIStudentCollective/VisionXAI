@@ -4,11 +4,54 @@ from flask_cors import CORS
 import os
 import subprocess
 import base64
+import shutil
+
+# Instead of importing dotenv, let's read the environment variable directly
+# This will help bypass the import issue
+# from dotenv import load_dotenv
+import os
+
+# Determine the project root directory
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
+
+# Manually read the API key from the .env.local file
+env_path = os.path.join(project_root, '.env.local')
+
+# Manual environment variable loading function
+def load_env_from_file(file_path):
+    try:
+        with open(file_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key] = value
+                    print(f"Loaded environment variable: {key}")
+    except Exception as e:
+        print(f"Error loading environment variables: {e}")
+
+# Load the environment variables
+if os.path.exists(env_path):
+    load_env_from_file(env_path)
+    print(f"Loaded environment variables from {env_path}")
+else:
+    print(f"Warning: Environment file not found at {env_path}")
+
+# Import the LLM explanation module
+from llm_explainer import generate_explanation
 
 app = Flask(__name__)
 
-# Fix CORS properly - allow from all origins for development
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+# Set up CORS to allow requests from any origin
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
+# Configure CORS
+CORS(app)
 
 
 api = Api(app)
@@ -131,16 +174,28 @@ class DataHandler(Resource):
             with open(visualization_image_path, "rb") as image_file:
                 encoded_image = base64.b64encode(image_file.read()).decode('utf-8')
                 
-            # Return JSON response with image data and predicted class
+            # Generate explanation using LLM explainer module
+            explanation = generate_explanation(image_path, visualization_image_path, predicted_class_name, architecture)
+            
+            # Print the explanation to the console for debugging/testing
+            print("\n" + "=" * 80)
+            print(f"LLM EXPLANATION FOR {predicted_class_name} ({architecture}):\n")
+            print(explanation)
+            print("=" * 80 + "\n")
+                
+            # Return JSON response with image data, predicted class, and explanation
             response = jsonify({
                 "image": encoded_image,
-                "predicted_class": predicted_class_name
+                "predicted_class": predicted_class_name,
+                "explanation": explanation
             })
             response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
             response.headers["Access-Control-Allow-Credentials"] = "true"
             return response
         except Exception as e:
             return Response(f"Error encoding image: {str(e)}", status=500)
+
+# LLM explanation function has been moved to llm_explainer.py
 
 api.add_resource(DataHandler, '/process-image')
 
