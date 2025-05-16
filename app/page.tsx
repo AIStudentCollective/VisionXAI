@@ -6,48 +6,48 @@ import { hasEnvVars } from "@/utils/supabase/check-env-vars";
 export default async function Home() {
   return (
     <>
-      <section className="flex flex-col justify-end px-16 pb-20 pt-[6rem]">
-        <div className="flex justify-end items-end w-full">
-          {/* About Section (45%) */}
-          <div className="text-white w-[45%] ml-6">
-            <h2 className="text-[48px] font-semibold mb-12">About</h2>
-            <p className="text-[20px] font-normal">
-              Lorem ipsum dolor sit amet. Eos fugiat saepe et obcaecati deserunt non enim fuga aut esse voluptas ut totam dolor 
-              hic natus quasi sed earum Quis. Et Quis officiis ea molestiae quae sit maiores reiciendis rem dicta repellat! 
-              Ea quia quidem et repellendus aperiam sit voluptatum atque in neque repudiandae a dignissimos voluptate est dolorem 
-              dolores aut fugiat dolore. Ut magni dolorem sed blanditiis molestiae qui atque deserunt.
-            </p>
-            <p className="text-[20px] font-normal mt-6">
-              Lorem ipsum dolor sit amet. Eos fugiat saepe et obcaecati deserunt non enim fuga aut esse voluptas ut totam 
-              dolor hic natus quasi sed earum Quis. Et Quis officiis ea molestiae quae sit maiores reiciendis rem dicta repellat!
-            </p>
-          </div>
-
-          {/* Empty Space (20%) */}
-          <div className="w-[20%]"></div>
-
-          {/* Framework Selection (35%) */}
-          <div className="w-[35%] flex flex-col mb-20">
-            <h3 className="text-[28px] font-semibold text-white mb-4">
-              Select A Framework
-            </h3>
-            <div className="flex gap-4">
-              <a
-                href="/torch"
-                className="w-[10rem] px-8 py-3 text-[16px] font-medium text-center bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] rounded-xl shadow-md hover:opacity-80 transition-all"
-              >
-                PyTorch
-              </a>
-              <a
-                href="/tensorflow"
-                className=" w-[10rem] px-8 py-3 text-[16px] font-medium text-center bg-[linear-gradient(90deg,#9333EA_0%,#6366F1_100%)] rounded-xl shadow-md hover:opacity-80 transition-all"
-              >
-                TensorFlow
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-    </>
-  );
+    <section className="flex flex-col justify-end px-6 sm:px-8 md:px-12 lg:px-20 xl:px-28 pb-12 sm:pb-20 md:pb-24 pt-16 sm:pt-20 md:pt-24 lg:pt-32 w-full overflow-hidden">
+    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end w-full mt-8 sm:mt-12 md:mt-20 lg:mt-24 gap-10 md:gap-12">
+    
+    {/* About Section (45%) */}
+    <div className="text-white w-full lg:w-[45%]">
+    <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight mb-4 sm:mb-5 md:mb-6">
+    VisX <span className="font-extrabold">Mission</span>
+    </h2>
+    <p className="text-sm sm:text-base md:text-lg font-light leading-relaxed text-gray-200 max-w-prose">
+    VisX advances the field of medical AI research by providing a transparent, interactive platform for
+    interpreting vision model outputs. Through intuitive visualizations and expert-level, LLM-driven
+    explanations, we enable researchers and clinicians to explore and evaluate model behavior, uncovering
+    insights that drive innovation and improve model reliability. Our mission is to foster trust and
+    collaboration between AI systems and medical experts, accelerating the development of safe, effective
+    diagnostic tools.
+    </p>
+    </div>
+    
+    {/* Empty Space (20%) */}
+    <div className="hidden lg:block lg:w-[10%] xl:w-[20%]"></div>
+    
+    {/* Framework Selection (35%) */}
+    <div className="w-full lg:w-[35%] flex flex-col mt-10 lg:mt-0 mb-10 sm:mb-14 md:mb-20">
+    <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-4 sm:mb-5">
+    Select A Framework
+    </h3>
+    <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
+    <a
+    href="/torch"
+    className="w-full sm:w-auto min-w-[8rem] md:min-w-[10rem] px-5 py-3 text-sm md:text-base font-medium text-center bg-gradient-to-r from-purple-600 to-indigo-500 rounded-xl shadow-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
+    >
+    PyTorch
+    </a>
+    <a
+    href="/tensorflow"
+    className="w-full sm:w-auto min-w-[8rem] md:min-w-[10rem] px-5 py-3 text-sm md:text-base font-medium text-center bg-gradient-to-r from-purple-600 to-indigo-500 rounded-xl shadow-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
+    >
+    TensorFlow
+    </a>
+    </div>
+    </div>
+    </div>
+    </section>
+    </>)
 }
