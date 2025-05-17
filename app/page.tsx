@@ -3,6 +3,10 @@ import ConnectSupabaseSteps from "@/components/tutorial/connect-supabase-steps";
 import SignUpUserSteps from "@/components/tutorial/sign-up-user-steps";
 import { hasEnvVars } from "@/utils/supabase/check-env-vars";
 
+export const metadata = {
+  title: 'VisX | Home',
+};
+
 export default async function Home() {
   return (
     <>
@@ -10,7 +14,7 @@ export default async function Home() {
     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end w-full mt-8 sm:mt-12 md:mt-20 lg:mt-24 gap-10 md:gap-12">
     
     {/* About Section (45%) */}
-    <div className="text-white w-full lg:w-[45%]">
+    <div className="text-white mt-5 w-full lg:w-[45%]">
     <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight mb-4 sm:mb-5 md:mb-6">
     VisX <span className="font-extrabold">Mission</span>
     </h2>
@@ -34,7 +38,7 @@ export default async function Home() {
     </h3>
     <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
     <a
-    href="/torch"
+    href="/torch_vit"
     className="w-full sm:w-auto min-w-[8rem] md:min-w-[10rem] px-5 py-3 text-sm md:text-base font-medium text-center bg-gradient-to-r from-purple-600 to-indigo-500 rounded-xl shadow-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
     >
     PyTorch

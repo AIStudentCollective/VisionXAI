@@ -17,6 +17,9 @@ export const metadata = {
 	metadataBase: new URL(defaultUrl),
 	title: "VisX",
 	description: "",
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 const geistSans = Geist({
@@ -45,10 +48,8 @@ export default function RootLayout({
 				<div className="relative flex-1 flex items-center justify-center w-fit-content h-fit-content bg-[url('/images/background.svg')] bg-cover bg-center bg-no-repeat">
 				{children}
 				</div>
-				<footer>
-					<div className="flex flex-col items-center justify-center w-full bg-[#161918] text-white py-4">
-						<p className="text-xs mt-2">VisX @ AI Student Collective</p>
-					</div>
+				<footer className="bg-transparent text-white w-full flex flex-col items-center justify-center">
+						<p className="text-xs my-2">VisX @ AI Student Collective</p>
 				</footer>
 			</body>
 		</html>

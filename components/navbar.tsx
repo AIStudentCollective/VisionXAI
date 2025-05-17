@@ -34,9 +34,9 @@ export default function NavBar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
         <div className="flex justify-between items-center h-20">
           {/* Logo */}
-          <div className="flex-shrink-0">
-            <Link href="/">
-              <img src="/images/logo.svg" alt="Logo" className="h-16 w-auto" />
+          <div className="flex-shrink-0 select-none">
+            <Link className="select-none" draggable="false" href="/">
+              <img src="/images/logo.svg" alt="Logo" className="h-16 w-auto select-none" draggable="false"/>
             </Link>
           </div>
 
@@ -104,7 +104,7 @@ export default function NavBar() {
           <Link
             href="/"
             className={`block px-3 py-2 rounded-md text-base font-thin ${
-              pathname === "/" ? "text-white bg-gray-800" : "text-gray-300 hover:bg-gray-700 hover:text-white"
+              pathname === "/" ? "text-white bg-gradient-to-r from-purple-600 to-indigo-500" : "text-gray-300 hover:bg-purple-600 hover:bg-opacity-25 hover:text-white"
             }`}
           >
             Home
@@ -112,7 +112,7 @@ export default function NavBar() {
           <Link
             href="/documents"
             className={`block px-3 py-2 rounded-md text-base font-thin ${
-              pathname === "/documents" ? "text-white bg-gray-800" : "text-gray-300 hover:bg-gray-700 hover:text-white"
+              pathname === "/documents" ? "text-white bg-gradient-to-r from-purple-600 to-indigo-500" : "text-gray-300 hover:bg-purple-600 hover:bg-opacity-25 hover:text-white"
             }`}
           >
             Documents
@@ -120,7 +120,7 @@ export default function NavBar() {
           <Link
             href="/support"
             className={`block px-3 py-2 rounded-md text-base font-thin ${
-              pathname === "/support" ? "text-white bg-gray-800" : "text-gray-300 hover:bg-gray-700 hover:text-white"
+              pathname === "/support" ? "text-white bg-gradient-to-r from-purple-600 to-indigo-500" : "text-gray-300 hover:bg-purple-600 hover:bg-opacity-25 hover:text-white"
             }`}
           >
             Support
@@ -129,8 +129,8 @@ export default function NavBar() {
             href="/privacy-policy"
             className={`block px-3 py-2 rounded-md text-base font-thin ${
               pathname === "/privacy-policy"
-                ? "text-white bg-gray-800"
-                : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                ? "text-white bg-gradient-to-r from-purple-600 to-indigo-500"
+                : "text-gray-300 hover:bg-purple-600 hover:bg-opacity-25 hover:text-white"
             }`}
           >
             Privacy Policy
