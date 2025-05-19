@@ -58,7 +58,7 @@ const WeightsSelect: React.FC<WeightsSelectProps> = ({
               }`}
               onClick={handleDefaultSelect}
             >
-              <div className="flex items-start">    
+              <div className="flex items-start">
                 <div>
                   <h3 className="text-white text-lg font-medium">Use Default Weights</h3>
                   <p className="text-gray-400 text-sm mt-1">
@@ -71,7 +71,7 @@ const WeightsSelect: React.FC<WeightsSelectProps> = ({
             {/* Custom Weights Option */}
             <div
               className={`flex-1 p-6 border rounded-lg cursor-pointer transition-all ${
-                !weightsSelected && weightsFile
+                !weightsSelected
                   ? "border-purple-500 bg-[#2D1139]"
                   : "border-gray-700 bg-[#210B2C] hover:border-purple-400"
               }`}

@@ -75,6 +75,7 @@ const ImageUploadStep: React.FC<ImageUploadProps> = ({ imageFile, setImageFile, 
       <div className="flex justify-end mt-6">
         <Button
           className="bg-gradient-to-r from-purple-600 to-indigo-500 text-white text-base font-normal px-8 py-2 rounded-lg hover:opacity-90 transition"
+          disabled={!imageFile}
           onClick={() => setStep(3)}
         >
           Next

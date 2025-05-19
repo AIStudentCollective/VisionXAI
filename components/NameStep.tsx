@@ -20,6 +20,7 @@ const NameStep: React.FC<NameStepProps> = ({ fileName, setFileName, setStep }) =
         />
         <Button
           onClick={() => setStep(2)}
+          disabled={!fileName}
           className="self-center px-10 py-2 mt-4 font-light bg-gradient-to-r from-purple-600 to-indigo-500 rounded-lg shadow-md hover:opacity-90 transition"
         >
           Start
