@@ -51,12 +51,12 @@ export default function NavBar() {
               Home
             </Link>
             <Link
-              href="/documents"
+              href="/database"
               className={`font-thin hover:text-gray-300 transition-colors ${
-                pathname === "/documents" ? "text-white" : "text-gray-400"
+                pathname === "/database" ? "text-white" : "text-gray-400"
               }`}
             >
-              Documents
+              Database
             </Link>
             <Link
               href="/support"
@@ -110,12 +110,12 @@ export default function NavBar() {
             Home
           </Link>
           <Link
-            href="/documents"
+            href="/dataase"
             className={`block px-3 py-2 rounded-md text-base font-thin ${
-              pathname === "/documents" ? "text-white bg-gradient-to-r from-purple-600 to-indigo-500" : "text-gray-300 hover:bg-purple-600 hover:bg-opacity-25 hover:text-white"
+              pathname === "/database" ? "text-white bg-gradient-to-r from-purple-600 to-indigo-500" : "text-gray-300 hover:bg-purple-600 hover:bg-opacity-25 hover:text-white"
             }`}
           >
-            Documents
+            Database
           </Link>
           <Link
             href="/support"

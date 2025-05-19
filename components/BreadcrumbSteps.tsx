@@ -8,7 +8,7 @@ const BreadcrumbSteps: React.FC<BreadcrumbStepsProps> = ({
   currentStepIndex,
 }) => {
   return (
-    <div className="flex items-center px-4 py-2 text-sm sm:text-base font-light text-gray-400">
+    <div className="flex w-full flex-wrap overflow-hidden items-center px-4 py-2 text-sm sm:text-base font-light text-gray-400">
       {steps.map((step, index) => (
         <div key={index} className="flex items-center">
           <span className={index === currentStepIndex ? "text-white font-normal" : ""}>
