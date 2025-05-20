@@ -12,6 +12,8 @@ interface WeightsSelectProps {
   setWeightsSelected: (selected: boolean) => void
   setStep: (step: number) => void
   steps: string[]
+  isLoading: boolean
+  handleSubmit: () => Promise<void>
 }
 
 const WeightsSelect: React.FC<WeightsSelectProps> = ({
@@ -21,6 +23,8 @@ const WeightsSelect: React.FC<WeightsSelectProps> = ({
   setWeightsSelected,
   setStep,
   steps,
+  isLoading,
+  handleSubmit,
 }) => {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
@@ -119,11 +123,20 @@ const WeightsSelect: React.FC<WeightsSelectProps> = ({
           Back
         </Button>
         <Button
-          className="bg-gradient-to-r from-purple-600 to-indigo-500 text-white text-base font-normal px-8 py-2 rounded-lg hover:opacity-90 transition"
-          onClick={() => setStep(5)}
-          disabled={!weightsSelected && !weightsFile}
+          className="bg-gradient-to-r from-purple-600 to-indigo-500 text-white text-lg font-normal px-10 py-3 rounded-lg hover:opacity-90 transition"
+          onClick={async () => {
+            await handleSubmit()
+          }}
+          disabled={isLoading || (!weightsSelected && !weightsFile)}
         >
-          Next
+          {isLoading ? (
+            <>
+              <span className="mr-2">Processing...</span>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            </>
+          ) : (
+            "Generate Visualization"
+          )}
         </Button>
       </div>
     </div>
