@@ -19,9 +19,16 @@ const MetadataCard: React.FC<Metadata> = ({
     <div className="bg-transparent text-white rounded-lg p-4 w-full max-w-sm shadow-md">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-xl font-light">{name}</h2>
-        <div className="px-3 py-0.5 rounded-full bg-indigo-500 text-white text-xs font-medium shadow hover:opacity-90 transition">
-          {status}
-        </div>
+        {status === "In Progress" && (
+          <div className="px-3 py-0.5 rounded-full bg-yellow-600 text-white text-xs font-medium shadow hover:opacity-90 transition">
+            {status}
+          </div>
+        )}
+        {status === "Completed" && (
+          <div className="px-3 py-0.5 rounded-full bg-green-600 text-white text-xs font-medium shadow hover:opacity-90 transition">
+            {status}
+          </div>
+        )}
       </div>
 
       <div className="space-y-1.5 text-xs sm:text-sm font-light">

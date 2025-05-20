@@ -7,7 +7,7 @@ import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import Link from "next/link";
 import "./globals.css";
-import NavBar from "@/components/navbar";
+import NavBar from "@/components/Navbar";
 
 const defaultUrl = process.env.VERCEL_URL
 ? `https://${process.env.VERCEL_URL}`

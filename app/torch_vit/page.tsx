@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
-import MetadataCard from "@/components/metadata-card"
+import MetadataCard from "@/components/MetadataCard"
 import BreadcrumbSteps from "@/components/BreadcrumbSteps"
 import NameStep from "@/components/NameStep"
 import ImageUploadStep from "@/components/ImageUploadStep"
@@ -105,9 +105,9 @@ export default function TorchVIT() {
 							name={fileName}
 							status="In Progress"
 							id="41603"
-							createdDate="2/26/2025"
+							createdDate="5/22/2025"
 							institution="UC Davis"
-							creator="rbihani"
+							creator="saparasa"
 						/>
 					</div>
 					
@@ -129,9 +129,9 @@ export default function TorchVIT() {
 							name={fileName}
 							status="In Progress"
 							id="41603"
-							createdDate="2/26/2025"
+							createdDate="5/22/2025"
 							institution="UC Davis"
-							creator="rbihani"
+							creator="saparasa"
 						/>
 					</div>
 				
@@ -167,9 +167,9 @@ export default function TorchVIT() {
 							name={fileName}
 							status="In Progress"
 							id="41603"
-							createdDate="2/26/2025"
+							createdDate="5/22/2025"
 							institution="UC Davis"
-							creator="rbihani"
+							creator="saparasa"
 						/>
 					</div>
 					
@@ -200,9 +200,9 @@ export default function TorchVIT() {
 							name={fileName}
 							status="Processing"
 							id="41603"
-							createdDate="2/26/2025"
+							createdDate="5/22/2025"
 							institution="UC Davis"
-							creator="rbihani"
+							creator="saparasa"
 						/>
 					</div>
 					
@@ -226,9 +226,9 @@ export default function TorchVIT() {
 							name={fileName}
 							status={visualizationUrl ? "Completed" : "In Progress"}
 							id="41603"
-							createdDate="2/26/2025"
+							createdDate="5/22/2025"
 							institution="UC Davis"
-							creator="rbihani"
+							creator="saparasa"
 						/>
 					</div>
 					

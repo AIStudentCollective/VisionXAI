@@ -124,7 +124,7 @@ const ArchitectureSelectStep: React.FC<ArchitectureSelectStepProps> = ({
             <div>
               <h3 className="text-white text-lg font-medium">Convolutional Neural Networks</h3>
               <p className="text-gray-400 text-sm mt-1">
-                Traditional CNN architectures like ResNet, VGG, and Inception for image classification.
+                Traditional CNN architectures like ResNet, VGG, DenseNet, and Inception for image classification.
               </p>
             </div>
           </div>
@@ -143,7 +143,7 @@ const ArchitectureSelectStep: React.FC<ArchitectureSelectStepProps> = ({
             <div>
               <h3 className="text-white text-lg font-medium">Vision Transformers</h3>
               <p className="text-gray-400 text-sm mt-1">
-                Modern transformer-based architectures designed for computer vision tasks.
+                Developed by Google, ViTs are modern transformer-based architectures designed for computer vision tasks.
               </p>
             </div>
           </div>
@@ -152,6 +152,7 @@ const ArchitectureSelectStep: React.FC<ArchitectureSelectStepProps> = ({
 
       {architectureType === "cnn" && (
         <div className="space-y-6">
+		<p className="text-center font-medium">Select an existing supported architecture or upload your own.</p>
           <div className="mb-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="w-full md:w-1/2">
@@ -257,7 +258,7 @@ const ArchitectureSelectStep: React.FC<ArchitectureSelectStepProps> = ({
 
           <div>
             <Label htmlFor="class_labels_csv" className="text-white text-base font-medium mb-2 block">
-              Class Labels CSV
+              Class Labels CSV File
             </Label>
             <Input
               id="class_labels_csv"

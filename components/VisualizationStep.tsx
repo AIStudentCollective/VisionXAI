@@ -82,11 +82,10 @@ const VisualizationStep: React.FC<VisualizationStepProps> = ({
 			<Button
 			className="bg-gradient-to-r from-purple-600 to-indigo-500 text-white text-base font-normal px-8 py-2 rounded-lg hover:opacity-90 transition"
 			onClick={() => {
-				// Download functionality could be added here
-				alert("Download functionality would be implemented here")
+				alert("LLM functionality not implemented yet")
 			}}
 			>
-			Download Results
+			Generate LLM Explanation
 			</Button>
 		)}
 		</div>
