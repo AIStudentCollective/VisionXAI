@@ -23,6 +23,7 @@ export default function TorchVIT() {
 	const [isLoading, setIsLoading] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	const [architectureSelected, setArchitectureSelected] = useState(false)
+	const [architectureType, setArchitectureType] = useState<"cnn" | "vit">("cnn")
 	const [customModelFile, setCustomModelFile] = useState<File | null>(null)
 	const [weightsSelected, setWeightsSelected] = useState(false)
 	const [dragActive, setDragActive] = useState(false)
@@ -54,7 +55,7 @@ export default function TorchVIT() {
 		}
 		
 		const formData = new FormData()
-		
+
 		if (customModelFile && weightsFile) {
 			formData.append("custom_model_file", customModelFile)
 			formData.append("custom_weights_file", weightsFile)
@@ -79,14 +80,25 @@ export default function TorchVIT() {
 		}
 		
 		try {
-			const response = await fetch("/api/pytorch/heatmap", { method: "POST", body: formData })
-			if (!response.ok) {
+			let response;
+			if (architectureType === "cnn") {
+				response = await fetch("/api/pytorch/heatmap", { method: "POST", body: formData })
+			}
+			else
+			{
+				response = await fetch("/api/pytorch/heatmap_vit", { method: "POST", body: formData })
+			}
+			if (architectureType == 'cnn' && !response.ok) {
 				throw new Error("Failed to generate Grad-CAM visualization.")
+			}
+			if (architectureType == 'vit' && !response.ok) {
+				throw new Error("Failed to generate attention rollout visualization.")
 			}
 			const result = await response.json()
 			setVisualizationUrl(`data:image/png;base64,${result.image}`)
 			setPredictionInfo(`Predicted Class: ${result.predicted_class} (${result.predicted_probability})`)
 			setStep(5) // Move to visualization step after successful API response
+
 		} catch (error) {
 			setError("Error processing request. Please try again.")
 		} finally {
@@ -153,6 +165,8 @@ export default function TorchVIT() {
 									setNumClasses={setNumClasses}
 									imageSize={imageSize}
 									setImageSize={setImageSize}
+									architectureType={architectureType}
+									setArchitectureType={setArchitectureType}
 								/>
 							</div>
 						</div>

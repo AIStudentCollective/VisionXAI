@@ -224,6 +224,8 @@ def heatmap():
 @pytorch_bp.route('/heatmap_vit', methods=['POST'])
 def vit_heatmap():
 
+    print('Received request for ViT heatmap generation.')
+
     model_name = request.form.get('model_name')
     weights_file = request.files.get('weights_path') 
     image_file = request.files['image_path']
@@ -231,10 +233,19 @@ def vit_heatmap():
     num_classes = request.form.get('num_classes')
     image_size = request.form.get('image_size')
 
-    if not model_name or not weights_file or not image_file or not class_labels_file or not num_classes or not image_size:
+    print('Displaying request data:')
+    print(f"Model Name: {model_name}")
+    print(f"Weights File: {weights_file}")
+    print(f"Image File: {image_file}")
+    print(f"Class Labels File: {class_labels_file}")
+    print(f"Num Classes: {num_classes}")
+    print(f"Image Size: {image_size}")
+
+    if not model_name or not image_file or not class_labels_file or not num_classes or not image_size:
         return jsonify("Unable to calculate attention rollout: insufficient data."), 500
 
     try:
+        print('Attempting makeRollout()')
         response = vit_attention_rollout.makeRollout(
             model_name, 
             weights_file, 
@@ -243,9 +254,12 @@ def vit_heatmap():
             num_classes, 
             image_size
         )
+        if isinstance(response, Exception):
+            raise response
+        
+        return jsonify(response), 200
     except Exception as e:
         return jsonify('Error in attention rollout.'), 500
-    return jsonify(response), 200
 
 # Acceptable models include:
 """

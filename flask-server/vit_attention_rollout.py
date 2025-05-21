@@ -17,12 +17,16 @@ import timm
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-def readConfig(config_file):
+def readConfig(config_file=None):
+    if config_file is None:
+        return None
+    print('Reading config file.')
     with open(config_file) as file:
         data = json.load(file)
     return data
 
 def preprocessImage(image, image_size=224):
+    print('Preprocessing image.')
     img = Image.open(image).convert('RGB')
     transform = transforms.Compose([transforms.Resize(249, 3), 
                             transforms.CenterCrop(image_size), 
@@ -60,30 +64,60 @@ def attention_rollout_function(attn_maps):
     return attn_rollout
 
 def loadModel(model_name, weights_file):
-    if model_name.contains('vit') or model_name.contains('deit'):
-        model = timm.create_model(model_name).to(device)
-    else:
-        return Exception(f'Model {model_name} unsupported. Only Facebook\'s DeiTs and Google\'s ViTs are supported right now.')
-    
+    print(f"Creating {model_name} from TIMM")
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f'Using device: {device}')
+    model = timm.create_model(model_name).to(device)
+    # return Exception(f'Model {model_name} unsupported. Only Facebook\'s DeiTs and Google\'s ViTs are supported right now.')
+    print('Model created.')
     if weights_file:
+        print(f'Loading weights from {weights_file}')
         model.load_state_dict(torch.load(weights_file, weights_only=True, map_location=torch.device(device)))
+        print('Weights loaded.')
     
+    print('Setting model to eval mode.')
     model.eval()
     return model
 
 def readCSV(class_labels_file):
+    print('Read CSV to dictionary')
     df = pd.read_csv(class_labels_file)
-    return df.to_dict()
+    return dict(zip(df['index'], df['class_name']))
 
 def makeRollout(model_name, weights_file, image_file, class_labels_file, num_attention_heads, image_size=224):
+    print('Attempting to make attention rollout.')
     try:
         model = loadModel(model_name, weights_file)
-        patch_size = model.patch_embed.patch_size 
-        num_patches = image_size/patch_size
+        print('Model loaded.')
+        
+        patches = model.patch_embed.patch_size 
+        print(f'Patches: {patches}')
+        print(f'Image file: {image_file}')
+        print(f'Image size: {image_size}')
+
+        patch_size = patches[0]
+        print(f'Patch size: {patch_size}')
+        print(f'Patch size type: {type(patch_size)}')
+        image_size = int(image_size)
+        print(f'Image size type: {type(image_size)}')
+        num_patches = int((int(image_size))/patch_size)
+        print(f'Number of patches: {num_patches}')
+        
+        print(f'Class labels file: {class_labels_file}')
         class_labels = readCSV(class_labels_file)
+        print('Class labels read.')
+        
         data = readConfig()
-        num_attention_heads = data.get('num_attention_heads', 12)
+        print('Config file read.')
+        
+        if data is None:
+            num_attention_heads = 12
+        else:
+            num_attention_heads = data.get('num_attention_heads', 12)
+        print(f'Number of attention heads: {num_attention_heads}')
+        
         img_tensor = preprocessImage(image_file, image_size)
+        print('Image preprocessed.')
 
         model.blocks[-1].attn.forward = my_forward_wrapper(model.blocks[-1].attn)
         y = model(img_tensor.unsqueeze(0).to(device))
@@ -94,7 +128,8 @@ def makeRollout(model_name, weights_file, image_file, class_labels_file, num_att
         attn_map_cpu = attn_map.cpu()
         cls_weight_cpu = cls_weight.cpu()
 
-        model = loadModel(model_name, weights_file)
+        print('Line 131 reached.')
+        # model = loadModel(model_name, weights_file)
         for block in tqdm(model.blocks):
             block.attn.forward = my_forward_wrapper(block.attn)
 
@@ -106,6 +141,7 @@ def makeRollout(model_name, weights_file, image_file, class_labels_file, num_att
             cls_weights.append(block.attn.cls_attn_map.mean(dim=1).view(num_patches, num_patches).detach())
 
         img_resized = img_tensor.permute(1, 2, 0) * 0.5 + 0.5
+        print('Image resized.')
 
         attn_maps_cpu = []
         for i in range(num_attention_heads):
@@ -131,28 +167,38 @@ def makeRollout(model_name, weights_file, image_file, class_labels_file, num_att
         cls_weight = cls_weights_rollout[num_attention_heads-1]
         cls_resized = F.interpolate(cls_weight.view(1, 1, num_patches, num_patches), (image_size, image_size), mode='bilinear').view(image_size, image_size, 1)
 
+        print('Line 170 reached.')
         cls_weight = cls_weights_rollout[11]
         cls_resized = F.interpolate(cls_weight.view(1, 1, num_patches, num_patches), (image_size, image_size), mode='bilinear').view(image_size, image_size, 1)
+
         plt.imshow(img_resized)
         plt.imshow(cls_resized, alpha=0.5)
         plt.axis('off')
-        plt.title('Attention Rollout Visualization')
-        
+        # plt.title('Attention Rollout Visualization')
+                
         imgBuf = io.BytesIO()
-        plt.savefig(imgBuf, format='png', bbox_inches='tight')
+        print('Saving image to buffer.')
+        plt.savefig(imgBuf, format='png', bbox_inches='tight', pad_inches=0)
         imgBuf.seek(0)
         imageBase64 = base64.b64encode(imgBuf.read()).decode('utf-8')
+        print('Image saved to buffer.')
 
         probabilities = F.softmax(y, dim=1).squeeze(0).cpu().detach().numpy()
+        print('Probabilities calculated.')
         top_class = np.argmax(probabilities)
-        top_class_label = class_labels[str(top_class[0])]
+        print('Top class calculated.')
+        # top_class_label = class_labels[str(top_class[0])]
+        # print('Top class label:', top_class_label)
         top_class_prob = probabilities[top_class]
+        print('Top class probability:', top_class_prob)
+        # print('Top class probability:', top_class_prob)
 
         response = {
-            'base64': imageBase64,
-            'top_class_label': top_class_label,
-            'top_class_sprob': top_class_prob,
+            'image': imageBase64,
+            'predicted_class': str(top_class),
+            'predicted_probability': str(top_class_prob * 100),
         }
+        # print(f'Response: {response}')
         return response
     
     except Exception as e:

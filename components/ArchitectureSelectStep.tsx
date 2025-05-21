@@ -22,6 +22,8 @@ interface ArchitectureSelectStepProps {
   setNumClasses: (num: number) => void
   imageSize: number
   setImageSize: (size: number) => void
+  architectureType : string
+  setArchitectureType: (architecture: string) => void
 }
 
 const architectures = [
@@ -45,7 +47,157 @@ const architectures = [
   "shufflenet_v2_x1_0",
 ]
 
-const vitModels = ["vit_b_16", "vit_b_32", "vit_l_16", "vit_l_32", "vit_h_14"]
+const vitModels = [
+    "vit_base_mci_224",
+    "vit_base_patch8_224",
+    "vit_base_patch14_dinov2",
+    "vit_base_patch14_reg4_dinov2",
+    "vit_base_patch16_18x2_224",
+    "vit_base_patch16_224",
+    "vit_base_patch16_224_miil",
+    "vit_base_patch16_384",
+    "vit_base_patch16_clip_224",
+    "vit_base_patch16_clip_384",
+    "vit_base_patch16_clip_quickgelu_224",
+    "vit_base_patch16_gap_224",
+    "vit_base_patch16_plus_240",
+    "vit_base_patch16_plus_clip_240",
+    "vit_base_patch16_reg4_gap_256",
+    "vit_base_patch16_rope_reg1_gap_256",
+    "vit_base_patch16_rpn_224",
+    "vit_base_patch16_siglip_224",
+    "vit_base_patch16_siglip_256",
+    "vit_base_patch16_siglip_384",
+    "vit_base_patch16_siglip_512",
+    "vit_base_patch16_siglip_gap_224",
+    "vit_base_patch16_siglip_gap_256",
+    "vit_base_patch16_siglip_gap_384",
+    "vit_base_patch16_siglip_gap_512",
+    "vit_base_patch16_xp_224",
+    "vit_base_patch32_224",
+    "vit_base_patch32_384",
+    "vit_base_patch32_clip_224",
+    "vit_base_patch32_clip_256",
+    "vit_base_patch32_clip_384",
+    "vit_base_patch32_clip_448",
+    "vit_base_patch32_clip_quickgelu_224",
+    "vit_base_patch32_plus_256",
+    "vit_base_r26_s32_224",
+    "vit_base_r50_s16_224",
+    "vit_base_r50_s16_384",
+    "vit_base_resnet26d_224",
+    "vit_base_resnet50d_224",
+    "vit_betwixt_patch16_gap_256",
+    "vit_betwixt_patch16_reg1_gap_256",
+    "vit_betwixt_patch16_reg4_gap_256",
+    "vit_betwixt_patch16_reg4_gap_384",
+    "vit_betwixt_patch16_rope_reg4_gap_256",
+    "vit_betwixt_patch32_clip_224",
+    "vit_giant_patch14_224",
+    "vit_giant_patch14_clip_224",
+    "vit_giant_patch14_dinov2",
+    "vit_giant_patch14_reg4_dinov2",
+    "vit_giant_patch16_gap_224",
+    "vit_gigantic_patch14_224",
+    "vit_gigantic_patch14_clip_224",
+    "vit_gigantic_patch14_clip_quickgelu_224",
+    "vit_huge_patch14_224",
+    "vit_huge_patch14_clip_224",
+    "vit_huge_patch14_clip_336",
+    "vit_huge_patch14_clip_378",
+    "vit_huge_patch14_clip_quickgelu_224",
+    "vit_huge_patch14_clip_quickgelu_378",
+    "vit_huge_patch14_gap_224",
+    "vit_huge_patch14_xp_224",
+    "vit_huge_patch16_gap_448",
+    "vit_intern300m_patch14_448",
+    "vit_large_patch14_224",
+    "vit_large_patch14_clip_224",
+    "vit_large_patch14_clip_336",
+    "vit_large_patch14_clip_quickgelu_224",
+    "vit_large_patch14_clip_quickgelu_336",
+    "vit_large_patch14_dinov2",
+    "vit_large_patch14_reg4_dinov2",
+    "vit_large_patch14_xp_224",
+    "vit_large_patch16_224",
+    "vit_large_patch16_384",
+    "vit_large_patch16_siglip_256",
+    "vit_large_patch16_siglip_384",
+    "vit_large_patch16_siglip_gap_256",
+    "vit_large_patch16_siglip_gap_384",
+    "vit_large_patch32_224",
+    "vit_large_patch32_384",
+    "vit_large_r50_s32_224",
+    "vit_large_r50_s32_384",
+    "vit_little_patch16_reg1_gap_256",
+    "vit_little_patch16_reg4_gap_256",
+    "vit_medium_patch16_clip_224",
+    "vit_medium_patch16_gap_240",
+    "vit_medium_patch16_gap_256",
+    "vit_medium_patch16_gap_384",
+    "vit_medium_patch16_reg1_gap_256",
+    "vit_medium_patch16_reg4_gap_256",
+    "vit_medium_patch16_rope_reg1_gap_256",
+    "vit_medium_patch32_clip_224",
+    "vit_mediumd_patch16_reg4_gap_256",
+    "vit_mediumd_patch16_reg4_gap_384",
+    "vit_mediumd_patch16_rope_reg1_gap_256",
+    "vit_pwee_patch16_reg1_gap_256",
+    "vit_relpos_base_patch16_224",
+    "vit_relpos_base_patch16_cls_224",
+    "vit_relpos_base_patch16_clsgap_224",
+    "vit_relpos_base_patch16_plus_240",
+    "vit_relpos_base_patch16_rpn_224",
+    "vit_relpos_base_patch32_plus_rpn_256",
+    "vit_relpos_medium_patch16_224",
+    "vit_relpos_medium_patch16_cls_224",
+    "vit_relpos_medium_patch16_rpn_224",
+    "vit_relpos_small_patch16_224",
+    "vit_relpos_small_patch16_rpn_224",
+    "vit_small_patch8_224",
+    "vit_small_patch14_dinov2",
+    "vit_small_patch14_reg4_dinov2",
+    "vit_small_patch16_18x2_224",
+    "vit_small_patch16_36x1_224",
+    "vit_small_patch16_224",
+    "vit_small_patch16_384",
+    "vit_small_patch32_224",
+    "vit_small_patch32_384",
+    "vit_small_r26_s32_224",
+    "vit_small_r26_s32_384",
+    "vit_small_resnet26d_224",
+    "vit_small_resnet50d_s16_224",
+    "vit_so150m2_patch16_reg1_gap_256",
+    "vit_so150m_patch16_reg4_gap_256",
+    "vit_so150m_patch16_reg4_gap_384",
+    "vit_so150m_patch16_reg4_map_256",
+    "vit_so400m_patch14_siglip_224",
+    "vit_so400m_patch14_siglip_378",
+    "vit_so400m_patch14_siglip_384",
+    "vit_so400m_patch14_siglip_gap_224",
+    "vit_so400m_patch14_siglip_gap_378",
+    "vit_so400m_patch14_siglip_gap_384",
+    "vit_so400m_patch14_siglip_gap_448",
+    "vit_so400m_patch14_siglip_gap_896",
+    "vit_so400m_patch16_siglip_256",
+    "vit_so400m_patch16_siglip_gap_256",
+    "vit_srelpos_medium_patch16_224",
+    "vit_srelpos_small_patch16_224",
+    "vit_tiny_patch16_224",
+    "vit_tiny_patch16_384",
+    "vit_tiny_r_s16_p8_224",
+    "vit_tiny_r_s16_p8_384",
+    "vit_wee_patch16_reg1_gap_256",
+    "vit_xsmall_patch16_clip_224",
+    "deit_base_distilled_patch16_224",
+    "deit_base_distilled_patch16_384",
+    "deit_base_patch16_224",
+    "deit_base_patch16_384",
+    "deit_small_distilled_patch16_224",
+    "deit_small_patch16_224",
+    "deit_tiny_distilled_patch16_224",
+    "deit_tiny_patch16_224",
+]
 
 const ArchitectureSelectStep: React.FC<ArchitectureSelectStepProps> = ({
   modelName,
@@ -61,8 +213,10 @@ const ArchitectureSelectStep: React.FC<ArchitectureSelectStepProps> = ({
   setNumClasses,
   imageSize,
   setImageSize,
+  architectureType,
+  setArchitectureType,
 }) => {
-  const [architectureType, setArchitectureType] = useState<"cnn" | "vit">("cnn")
+//   const [architectureType, setArchitectureType] = useState<"cnn" | "vit">("cnn")
   const [search, setSearch] = useState("")
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -360,6 +514,23 @@ const ArchitectureSelectStep: React.FC<ArchitectureSelectStepProps> = ({
               required
             />
             {classLabelsFile && <p className="text-purple-400 text-sm mt-1">Selected: {classLabelsFile.name}</p>}
+          </div>
+		
+			<div>
+            <Label htmlFor="num_classes" className="text-white text-base font-medium mb-2 block">
+              Number of Classes
+            </Label>
+            <Input
+              id="num_classes"
+              type="number"
+              min="1"
+              value={numClasses || ""}
+              onChange={(e) => setNumClasses(Number.parseInt(e.target.value) || 0)}
+              className="bg-[#210B2C] border border-purple-100 border-opacity-25 text-white rounded-lg focus:ring-purple-500 focus:border-purple-500 h-10"
+              placeholder="e.g., 2"
+              required
+            />
+            <p className="text-gray-400 text-xs mt-1">Number of classes for classification. This should be the length of your CSV file.</p>
           </div>
 
           <div>
