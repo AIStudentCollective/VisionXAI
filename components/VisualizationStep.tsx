@@ -10,6 +10,9 @@ interface VisualizationStepProps {
 	error: string | null
 	handleSubmit: () => Promise<void>
 	setStep: (step: number) => void
+	llmExplanation?: string | null
+	llmLoading?: boolean
+	onGenerateLLMExplanation?: () => void
 }
 
 const VisualizationStep: React.FC<VisualizationStepProps> = ({
@@ -19,6 +22,9 @@ const VisualizationStep: React.FC<VisualizationStepProps> = ({
 	error,
 	handleSubmit,
 	setStep,
+	llmExplanation,
+	llmLoading,
+	onGenerateLLMExplanation,
 }) => {
 	return (
 		<div className="flex flex-col h-full w-full">
@@ -55,7 +61,9 @@ const VisualizationStep: React.FC<VisualizationStepProps> = ({
 			)}
 			</div>
 			<div className="mt-4 text-gray-300 text-sm">
-			<p>Manik -- put the LLM explanations here.</p>
+			{llmExplanation ? (
+				<p className="whitespace-pre-line">{llmExplanation}</p>
+			) : null}
 			</div>
 			</div>
 		) : (
@@ -80,12 +88,11 @@ const VisualizationStep: React.FC<VisualizationStepProps> = ({
 		</Button>
 		{visualizationUrl && (
 			<Button
-			className="bg-gradient-to-r from-purple-600 to-indigo-500 text-white text-base font-normal px-8 py-2 rounded-lg hover:opacity-90 transition"
-			onClick={() => {
-				alert("LLM functionality not implemented yet")
-			}}
+				className="bg-gradient-to-r from-purple-600 to-indigo-500 text-white text-base font-normal px-8 py-2 rounded-lg hover:opacity-90 transition"
+				onClick={onGenerateLLMExplanation}
+				disabled={!!llmLoading}
 			>
-			Generate LLM Explanation
+				{llmLoading ? "Generating..." : "Generate LLM Explanation"}
 			</Button>
 		)}
 		</div>

@@ -31,6 +31,11 @@ export default function TorchVIT() {
 	const [open, setOpen] = useState(false)
 	const [numClasses, setNumClasses] = useState<number>(0)
 	const [imageSize, setImageSize] = useState<number>(0)
+	const [llmExplanation, setLlmExplanation] = useState<string | null>(null)
+	const [llmLoading, setLlmLoading] = useState(false)
+	const [originalImagePath, setOriginalImagePath] = useState<string | null>(null)
+	const [heatmapImagePath, setHeatmapImagePath] = useState<string | null>(null)
+	const [architecture, setArchitecture] = useState<string | null>(null)
 	
 	const handleFileUpload =
 	(
@@ -47,6 +52,7 @@ export default function TorchVIT() {
 	const handleSubmit = async () => {
 		setIsLoading(true)
 		setError(null)
+		setLlmExplanation(null)
 		
 		if ((!modelName && !customModelFile) || !imageFile || !classLabelsFile) {
 			setError("Error: Model selection, image file, and class labels CSV are required.")
@@ -97,12 +103,44 @@ export default function TorchVIT() {
 			const result = await response.json()
 			setVisualizationUrl(`data:image/png;base64,${result.image}`)
 			setPredictionInfo(`Predicted Class: ${result.predicted_class} (${result.predicted_probability})`)
+			setOriginalImagePath(result.original_image_path || null)
+			setHeatmapImagePath(result.heatmap_image_path || null)
+			setArchitecture(result.architecture || null)
 			setStep(5) // Move to visualization step after successful API response
 
 		} catch (error) {
 			setError("Error processing request. Please try again.")
 		} finally {
 			setIsLoading(false)
+		}
+	}
+	
+	const handleGenerateLLMExplanation = async () => {
+		if (!predictionInfo || !originalImagePath || !heatmapImagePath || !architecture) return;
+		// Parse predicted class from predictionInfo string
+		const match = predictionInfo.match(/Predicted Class: (.+) \(([^)]+)%\)/);
+		if (!match) return;
+		const predicted_class = match[1];
+		setLlmLoading(true);
+		setError(null);
+		try {
+			const response = await fetch("/api/pytorch/llm_explanation", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					original_image_path: originalImagePath,
+					heatmap_image_path: heatmapImagePath,
+					predicted_class,
+					architecture
+				}),
+			});
+			if (!response.ok) throw new Error("Failed to generate LLM explanation.");
+			const result = await response.json();
+			setLlmExplanation(result.llm_explanation || null);
+		} catch (error) {
+			setError("Error generating LLM explanation.");
+		} finally {
+			setLlmLoading(false);
 		}
 	}
 	
@@ -166,7 +204,7 @@ export default function TorchVIT() {
 									imageSize={imageSize}
 									setImageSize={setImageSize}
 									architectureType={architectureType}
-									setArchitectureType={setArchitectureType}
+									setArchitectureType={(arch) => setArchitectureType(arch as "cnn" | "vit")}
 								/>
 							</div>
 						</div>
@@ -257,6 +295,9 @@ export default function TorchVIT() {
 									error={error}
 									handleSubmit={handleSubmit}
 									setStep={setStep}
+									llmExplanation={llmExplanation}
+									llmLoading={llmLoading}
+									onGenerateLLMExplanation={handleGenerateLLMExplanation}
 								/>
 							</div>
 						</div>
