@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
 import { usePathname } from "next/navigation"
+import { signOutAction } from "@/app/actions"
+
 
 export default function NavBar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -73,6 +75,15 @@ export default function NavBar() {
               }`}
             >
               Privacy Policy
+            </Link>
+            <Link
+              href="/"
+              onClick={signOutAction}
+              className={`font-thin hover:text-gray-300 transition-colors ${
+                pathname === "/sign-out" ? "text-white" : "text-gray-400"
+              }`}
+            >
+              Sign Out
             </Link>
           </div>
 

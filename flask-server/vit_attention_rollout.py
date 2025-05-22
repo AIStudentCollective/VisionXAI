@@ -192,7 +192,7 @@ def makeRollout(model_name, weights_file, image_file, class_labels_file, num_att
         top_class_prob = probabilities[top_class]
         print('Top class probability:', top_class_prob)
         # print('Top class probability:', top_class_prob)
-
+        print(f'Image base 64: {imageBase64}')
         response = {
             'image': imageBase64,
             'predicted_class': str(top_class),

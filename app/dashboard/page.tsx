@@ -1,4 +1,4 @@
-import HomePage from '@/components/HomePage';
+import Dashboard from "@/components/Dashboard";
 
 export const metadata = {
   title: 'VisX | Home',
@@ -6,6 +6,6 @@ export const metadata = {
 
 export default async function Home() {
   return (
-    <HomePage></HomePage>
+    <Dashboard></Dashboard>
   )
 }
