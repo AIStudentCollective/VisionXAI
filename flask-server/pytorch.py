@@ -13,6 +13,7 @@ import tempfile
 import os
 from importlib.util import spec_from_file_location, module_from_spec
 import vit_attention_rollout
+from llm_explainer import generate_explanation
 
 pytorch_bp = Blueprint('pytorch', __name__)
 
@@ -201,14 +202,50 @@ def heatmap():
     _, buffer = cv2.imencode('.png', cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
     image_base64 = base64.b64encode(buffer).decode('utf-8')
 
+    # Save original and heatmap images to temp files for LLM explainer
+    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as orig_temp, \
+         tempfile.NamedTemporaryFile(suffix='.png', delete=False) as heatmap_temp:
+        img.save(orig_temp.name)
+        orig_path = orig_temp.name
+        heatmap_img = Image.fromarray(overlay)
+        heatmap_img.save(heatmap_temp.name)
+        heatmap_path = heatmap_temp.name
+
+    # Generate LLM explanation with new signature
+    llm_explanation = generate_explanation(
+        orig_path,
+        heatmap_path,
+        predicted_class_name,
+        model_name
+    )
+
     return jsonify({
         "image": image_base64,
         "predicted_class": predicted_class_name,
         "predicted_probability": f"{predicted_class_prob:.2f}%",
-        "target_layer_used": target_layer
+        "target_layer_used": target_layer,
+        "llm_explanation": llm_explanation,
+        "original_image_path": orig_path,
+        "heatmap_image_path": heatmap_path,
+        "architecture": model_name
     }), 200
 
-
+@pytorch_bp.route('/llm_explanation', methods=['POST'])
+def llm_explanation():
+    data = request.get_json()
+    original_image_path = data.get('original_image_path')
+    heatmap_image_path = data.get('heatmap_image_path')
+    predicted_class = data.get('predicted_class')
+    architecture = data.get('architecture')
+    if not all([original_image_path, heatmap_image_path, predicted_class, architecture]):
+        return jsonify({"error": "Missing required fields"}), 400
+    explanation = generate_explanation(
+        original_image_path,
+        heatmap_image_path,
+        predicted_class,
+        architecture
+    )
+    return jsonify({"llm_explanation": explanation}), 200
 
 # Acceptabble models include: 
 # resnet18, resnet34, resnet50, resnet101, resnet152 --> with target layer4
