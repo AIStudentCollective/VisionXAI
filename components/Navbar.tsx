@@ -1,14 +1,42 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { createClient } from "@/utils/supabase/client"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
 import { usePathname } from "next/navigation"
+import { useRouter } from "next/router"
 
 export default function NavBar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const pathname = usePathname()
+  const supabase = createClient()
+  // const router = useRouter()
+
+  // Check if user is authenticated
+ useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setIsLoggedIn(!!session)
+    }
+
+    checkSession()
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session)
+    })
+
+    return () => listener.subscription.unsubscribe()
+  }, [supabase])
+
+  // Handle logout
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setIsLoggedIn(false)
+    // router.push("/sign-in")
+  }
 
   // Handle scroll effect
   useEffect(() => {
@@ -74,6 +102,17 @@ export default function NavBar() {
             >
               Privacy Policy
             </Link>
+
+            {isLoggedIn && <Link
+              onClick={handleLogout}
+              href="/sign-in"
+              className={`font-thin hover:text-gray-300 transition-colors ${
+                pathname === "/sign-out" ? "text-white" : "text-gray-400"
+              }`}
+            >
+              Sign Out
+            </Link>
+        }
           </div>
 
           {/* Mobile Menu Button */}
