@@ -7,39 +7,51 @@ import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import Link from "next/link";
 import "./globals.css";
+import NavBar from "@/components/Navbar";
 
 const defaultUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : "http://localhost:3000";
+? `https://${process.env.VERCEL_URL}`
+: "http://localhost:3000";
 
 export const metadata = {
-  metadataBase: new URL(defaultUrl),
-  title: "Next.js and Supabase Starter Kit",
-  description: "The fastest way to build apps with Next.js and Supabase",
+	metadataBase: new URL(defaultUrl),
+	title: "VisX",
+	description: "",
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 const geistSans = Geist({
-  display: "swap",
-  subsets: ["latin"],
+	display: "swap",
+	subsets: ["latin"],
+});
+
+import { Inter } from 'next/font/google';
+
+const inter = Inter({ 
+	// display: 'swap ',
+	subsets: ['latin'] 
 });
 
 export default function RootLayout({
-  children,
+	children,
 }: Readonly<{
-  children: React.ReactNode;
+	children: React.ReactNode;
 }>) {
-  return (
-    <html lang="en" className={geistSans.className} suppressHydrationWarning>
-      <body className="bg-background text-foreground">
-        <div className="flex flex-row justify-between">
-          <div className="p-4">VisionXAI</div>
-          <div className="flex flex-row p-5">
-            <Link href="/sign-in" className="mx-5">Sign In</Link>
-            <Link href="/sign-up" className="mx-5">Sign Up</Link>
-          </div>
-        </div>
-        {children}
-      </body>
-    </html>
-  );
+	return (
+		<html lang= "en" className={inter.className} suppressHydrationWarning>
+			<body className="bg-[#161918] text-white text-foreground min-h-screen min-w-full flex flex-col">
+				{/* Navbar */}
+				<NavBar/>
+				{/* Page Content - Adding Padding to Push Below Navbar */}
+				<div className="relative flex-1 flex items-center justify-center w-fit-content h-fit-content bg-[url('/images/background.svg')] bg-cover bg-center bg-no-repeat">
+				{children}
+				</div>
+				<footer className="bg-transparent text-white w-full flex flex-col items-center justify-center">
+						<p className="text-xs my-2">VisX @ AI Student Collective</p>
+				</footer>
+			</body>
+		</html>
+	);
 }
